@@ -1,22 +1,24 @@
 # Hugging Face Inference Endpoints -- custom container (NOT a Space).
 # Built automatically by .github/workflows/build-hf-endpoint-image.yml on every push to main
 # -> ghcr.io/<owner>/cosyvoice3-endpoint:latest. Deploy: Inference Endpoints -> Custom
-# Container -> that image URL, port 80, health route /health. Set secret HF_TOKEN (read
+# Container -> that image URL, port 8080, health route /health. Set secret HF_TOKEN (read
 # access to the all-lab/cosyvoice3-individual-* repos handler.py routes to).
 #
 # Mirrors the proven all-lab-tts-endpoint pattern (same org, ms0017/all-lab-tts-endpoint) --
 # GHCR + GITHUB_TOKEN instead of Docker Hub (no separate registry credentials, no local
-# Docker/network dependency), port 80 (HF IE's default health/probe port), and this exact
-# newer CUDA base -- that project reports zero CUDA/driver mismatch issues on the same HF T4
-# infra, unlike torch==2.3.1+cu121 here which hit "libcudart.so.13 not found" (host wants a
-# newer CUDA runtime than that build provides).
+# Docker/network dependency). Port 8080 -- HF's custom-container platform injects its own
+# PORT=8080 env var into the running container regardless of what the image declares, so the
+# server (and the endpoint's healthRoute port config) must match that, not 80. This newer CUDA
+# base reports zero CUDA/driver mismatch issues on the same HF T4 infra, unlike
+# torch==2.3.1+cu121 here which hit "libcudart.so.13 not found" (host wants a newer CUDA
+# runtime than that build provides).
 FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PYTHONUNBUFFERED=1 \
     HF_HUB_ENABLE_HF_TRANSFER=1 \
-    PORT=80 \
+    PORT=8080 \
     MODEL_DIR=/repository
 
 RUN apt-get update -y && apt-get install -y --no-install-recommends ffmpeg git g++ libsndfile1 && rm -rf /var/lib/apt/lists/*
@@ -58,7 +60,8 @@ RUN pip install --no-cache-dir --timeout=180 --retries=10 \
     protobuf==4.25 \
     pydantic==2.7.0 \
     pyworld==0.3.4 \
-    matplotlib==3.7.5
+    matplotlib==3.7.5 \
+    gdown
 
 # Installing torch+torchaudio as a matched pair EARLIER in the build still ended up broken at
 # runtime ("undefined symbol: torch::autograd::Node::name") because one of the packages above
@@ -71,5 +74,5 @@ RUN pip install --no-cache-dir --force-reinstall \
     torch==2.8.0 torchaudio==2.8.0 && \
     python -c "import torch, torchaudio; print('torch', torch.__version__, 'torchaudio', torchaudio.__version__, 'cuda', torch.version.cuda)"
 
-EXPOSE 80
+EXPOSE 8080
 ENTRYPOINT ["python", "/repository/hf_endpoint_server.py"]
