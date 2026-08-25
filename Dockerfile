@@ -23,15 +23,15 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends ffmpeg git g
 
 RUN pip install --no-cache-dir "setuptools<81"
 
-# The base image ships torch but no torchaudio, and a hardcoded torchaudio==2.8.0/cu128 still
-# hit an ABI mismatch ("undefined symbol: torch::autograd::Node::name") -- the base image's
-# exact torch build doesn't match the generic cu128 wheel. Read the already-installed torch's
-# own version + CUDA tag at build time and install the precisely matching torchaudio, --no-deps
-# so it can't drag in a different torch build alongside the base image's.
-RUN TORCH_VER=$(python -c "import torch; print(torch.__version__.split('+')[0])") && \
-    CUDA_TAG=$(python -c "import torch; print('cu' + torch.version.cuda.replace('.', ''))") && \
-    echo "base torch=${TORCH_VER} cuda=${CUDA_TAG}" && \
-    pip install --no-cache-dir --no-deps --index-url https://download.pytorch.org/whl/${CUDA_TAG} torchaudio==${TORCH_VER}
+# Pairing the base image's pre-baked torch with a separately-pinned torchaudio kept hitting
+# ABI mismatches ("undefined symbol: torch::autograd::Node::name") no matter how precisely the
+# torchaudio version/CUDA tag was matched -- the base image's torch build is evidently not
+# byte-identical to the public wheel of the same version string. Stop trusting the base image's
+# torch at all: force-reinstall torch and torchaudio TOGETHER from the same index in the same
+# command, so they are guaranteed to be the matched pair PyTorch actually built and tested.
+RUN pip install --no-cache-dir --force-reinstall \
+    --index-url https://download.pytorch.org/whl/cu128 \
+    torch==2.8.0 torchaudio==2.8.0
 
 # openai-whisper's legacy setup.py needs pkg_resources at build time -- pip's isolated build
 # env for it fetches its OWN fresh setuptools regardless of what's already installed above,
