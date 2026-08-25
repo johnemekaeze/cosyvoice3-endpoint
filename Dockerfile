@@ -23,6 +23,12 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends ffmpeg git g
 
 RUN pip install --no-cache-dir "setuptools<81"
 
+# The base image ships torch 2.8.0/cu128 but no torchaudio -- letting pip resolve torchaudio
+# on its own pulled in a build with a mismatched libtorch ABI ("undefined symbol:
+# torch::autograd::Node::name" at import time). Pin the exact matching wheel and skip its
+# deps so it can't drag in a different torch build alongside the base image's.
+RUN pip install --no-cache-dir --no-deps --index-url https://download.pytorch.org/whl/cu128 torchaudio==2.8.0
+
 # openai-whisper's legacy setup.py needs pkg_resources at build time -- pip's isolated build
 # env for it fetches its OWN fresh setuptools regardless of what's already installed above,
 # so --no-build-isolation makes it use the pinned one instead.
