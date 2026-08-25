@@ -36,7 +36,12 @@ RUN pip install --no-cache-dir --force-reinstall \
 # openai-whisper's legacy setup.py needs pkg_resources at build time -- pip's isolated build
 # env for it fetches its OWN fresh setuptools regardless of what's already installed above,
 # so --no-build-isolation makes it use the pinned one instead.
-RUN pip install --no-cache-dir --no-build-isolation openai-whisper==20231117
+# openai-whisper's own install_requires resolves to torch==2.3.1 (its metadata predates
+# torch 2.8) -- pip happily downgrades the just-installed matched torch/torchaudio pair to
+# satisfy it, silently reintroducing the exact ABI mismatch the step above just fixed.
+# --no-deps plus its non-torch deps keeps the pinned torch/torchaudio pair untouched.
+RUN pip install --no-cache-dir --no-build-isolation --no-deps openai-whisper==20231117 && \
+    pip install --no-cache-dir numba tqdm more-itertools tiktoken
 
 RUN pip install --no-cache-dir --timeout=180 --retries=10 onnxruntime-gpu==1.18.0
 
