@@ -23,25 +23,10 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends ffmpeg git g
 
 RUN pip install --no-cache-dir "setuptools<81"
 
-# Pairing the base image's pre-baked torch with a separately-pinned torchaudio kept hitting
-# ABI mismatches ("undefined symbol: torch::autograd::Node::name") no matter how precisely the
-# torchaudio version/CUDA tag was matched -- the base image's torch build is evidently not
-# byte-identical to the public wheel of the same version string. Stop trusting the base image's
-# torch at all: force-reinstall torch and torchaudio TOGETHER from the same index in the same
-# command, so they are guaranteed to be the matched pair PyTorch actually built and tested.
-RUN pip install --no-cache-dir --force-reinstall \
-    --index-url https://download.pytorch.org/whl/cu128 \
-    torch==2.8.0 torchaudio==2.8.0
-
 # openai-whisper's legacy setup.py needs pkg_resources at build time -- pip's isolated build
 # env for it fetches its OWN fresh setuptools regardless of what's already installed above,
 # so --no-build-isolation makes it use the pinned one instead.
-# openai-whisper's own install_requires resolves to torch==2.3.1 (its metadata predates
-# torch 2.8) -- pip happily downgrades the just-installed matched torch/torchaudio pair to
-# satisfy it, silently reintroducing the exact ABI mismatch the step above just fixed.
-# --no-deps plus its non-torch deps keeps the pinned torch/torchaudio pair untouched.
-RUN pip install --no-cache-dir --no-build-isolation --no-deps openai-whisper==20231117 && \
-    pip install --no-cache-dir numba tqdm more-itertools tiktoken
+RUN pip install --no-cache-dir --no-build-isolation openai-whisper==20231117
 
 RUN pip install --no-cache-dir --timeout=180 --retries=10 onnxruntime-gpu==1.18.0
 
@@ -74,6 +59,17 @@ RUN pip install --no-cache-dir --timeout=180 --retries=10 \
     pydantic==2.7.0 \
     pyworld==0.3.4 \
     matplotlib==3.7.5
+
+# Installing torch+torchaudio as a matched pair EARLIER in the build still ended up broken at
+# runtime ("undefined symbol: torch::autograd::Node::name") because one of the packages above
+# silently pulls in its own unpinned, ABI-mismatched torchaudio as a transitive dependency,
+# clobbering the earlier install. Force-reinstall the matched pair LAST, after every other pip
+# install, so nothing downstream can overwrite it -- then verify the import actually works at
+# build time so a broken image fails CI immediately instead of failing on the live endpoint.
+RUN pip install --no-cache-dir --force-reinstall \
+    --index-url https://download.pytorch.org/whl/cu128 \
+    torch==2.8.0 torchaudio==2.8.0 && \
+    python -c "import torch, torchaudio; print('torch', torch.__version__, 'torchaudio', torchaudio.__version__, 'cuda', torch.version.cuda)"
 
 EXPOSE 80
 ENTRYPOINT ["python", "/repository/hf_endpoint_server.py"]
