@@ -62,7 +62,8 @@ RUN pip install --no-cache-dir --timeout=180 --retries=10 \
     pyworld==0.3.4 \
     matplotlib==3.7.5 \
     gdown \
-    wget
+    wget \
+    pyarrow==18.1.0
 
 # Installing torch+torchaudio as a matched pair EARLIER in the build still ended up broken at
 # runtime ("undefined symbol: torch::autograd::Node::name") because one of the packages above
