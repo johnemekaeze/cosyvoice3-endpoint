@@ -1,6 +1,6 @@
 # CosyVoice3 — HF Inference Endpoint (custom container)
 
-Multi-language CosyVoice3 TTS for African Languages Lab: Hausa, Twi, Igbo, Ewe.
+Multi-language CosyVoice3 TTS for African Languages Lab: 24 African languages.
 One endpoint, one model in VRAM at a time, switching on demand.
 
 Structured after `ms0017/all-lab-tts-endpoint` (OmniVoice): the `cosyvoice/` +
@@ -25,7 +25,22 @@ curl https://<endpoint>.endpoints.huggingface.cloud/ \
   -d '{"inputs": "Sannu da safe", "language": "ha-NG"}'
 ```
 
-`language` accepts `ha-NG | tw-GH | ig-NG | ee-GH | ber-MA | umb-AO` (or `hausa|twi|igbo|ewe|berber|umbundu`).
+`language` accepts any of these codes (plain names like `hausa`, `swahili`, `zulu` work too):
+
+| code | language | code | language | code | language |
+|---|---|---|---|---|---|
+| `ha-NG` | Hausa | `am-ET` | Amharic | `so-SO` | Somali |
+| `tw-GH` | Twi | `ar-AR` | Arabic | `st-ZA` | Sesotho |
+| `ig-NG` | Igbo | `ff-SN` | Fula | `sw-KE` | Swahili |
+| `ee-GH` | Ewe | `lg-UG` | Luganda | `ti-ER` | Tigrinya |
+| `ber-MA` | Berber | `ln-CD` | Lingala | `tn-BW` | Tswana |
+| `umb-AO` | Umbundu | `mg-MG` | Malagasy | `ts-ZA` | Tsonga |
+| `nso-ZA` | Sepedi | `ny-MW` | Chichewa | `ve-ZA` | Venda |
+| `or-KE` | Oromo | `xh-ZA` | Xhosa | `zu-ZA` | Zulu |
+
+Every one of these is the exact checkpoint pair that produced a verified-clean sample in the
+best-checkpoint audit. Languages that failed that audit (af-ZA, en-UG, ki-KE, nd-ZW, rw-RW,
+yo-NG, sn-ZW, wo-SN, bem-ZM) are deliberately not served.
 
 CosyVoice3 is a zero-shot cloning model, so every request synthesizes in the voice of a
 reference clip. A validated reference is bundled per language, so no extra arguments are
@@ -37,6 +52,7 @@ Response: `{"language", "display", "sampling_rate", "duration_sec", "audio_base6
 ## Notes
 
 - Only the default language (`ha-NG`, override with `COSYVOICE_DEFAULT_LANGUAGE`) is warmed
-  at startup; the others load on first request for that language.
+  at startup; the others load on first request for that language. That first call to a new
+  language downloads ~5GB of weights and takes ~2.5 minutes; later calls to it are ~11s.
 - GHCR packages default to private. Make the package public via the web UI
   (Package settings -> Danger Zone -> Change visibility) or the endpoint cannot pull it.

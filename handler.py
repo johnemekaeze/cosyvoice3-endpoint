@@ -43,17 +43,38 @@ import torch
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("cosyvoice3-endpoint")
 
-# Every language here is backed by a published all-lab/cosyvoice3-individual-* repo AND
-# was confirmed to synthesize clean audio in the best-checkpoint comparison run (full-length
-# output, no high-frequency artefacts, healthy level). en-UG and wo-SN also have repos but
-# are deliberately excluded: en-UG collapses to 0.28s of noise, wo-SN renders ~30dB too quiet.
+# Every language here is backed by a published all-lab/cosyvoice3-individual-* repo holding
+# the exact llm+flow checkpoint pair that produced a verified-clean sample in the
+# best-checkpoint audit (full-length output, no high-frequency artefacts, healthy level).
+# Deliberately excluded, having failed that audit: af-ZA / en-UG / ki-KE / nd-ZW / rw-RW /
+# yo-NG (collapse to well under a second), sn-ZW (audible hiss), wo-SN (~30dB too quiet)
+# and bem-ZM (generation errored outright).
+_L = "all-lab/cosyvoice3-individual-{}"
 MODELS: Dict[str, Dict[str, str]] = {
-    "ha-NG": {"repo": "all-lab/cosyvoice3-individual-ha-NG", "display": "Hausa"},
-    "tw-GH": {"repo": "all-lab/cosyvoice3-individual-tw-GH", "display": "Twi"},
-    "ig-NG": {"repo": "all-lab/cosyvoice3-individual-ig-NG", "display": "Igbo"},
-    "ee-GH": {"repo": "all-lab/cosyvoice3-individual-ee-GH", "display": "Ewe"},
-    "ber-MA": {"repo": "all-lab/cosyvoice3-individual-ber-MA", "display": "Berber (Tamazight)"},
-    "umb-AO": {"repo": "all-lab/cosyvoice3-individual-umb-AO", "display": "Umbundu"},
+    "ha-NG": {"repo": _L.format("ha-NG"), "display": "Hausa"},
+    "tw-GH": {"repo": _L.format("tw-GH"), "display": "Twi"},
+    "ig-NG": {"repo": _L.format("ig-NG"), "display": "Igbo"},
+    "ee-GH": {"repo": _L.format("ee-GH"), "display": "Ewe"},
+    "ber-MA": {"repo": _L.format("ber-MA"), "display": "Berber (Tamazight)"},
+    "umb-AO": {"repo": _L.format("umb-AO"), "display": "Umbundu"},
+    "am-ET": {"repo": _L.format("am-ET"), "display": "Amharic"},
+    "ar-AR": {"repo": _L.format("ar-AR"), "display": "Arabic"},
+    "ff-SN": {"repo": _L.format("ff-SN"), "display": "Fula"},
+    "lg-UG": {"repo": _L.format("lg-UG"), "display": "Luganda"},
+    "ln-CD": {"repo": _L.format("ln-CD"), "display": "Lingala"},
+    "mg-MG": {"repo": _L.format("mg-MG"), "display": "Malagasy"},
+    "nso-ZA": {"repo": _L.format("nso-ZA"), "display": "Sepedi"},
+    "ny-MW": {"repo": _L.format("ny-MW"), "display": "Chichewa"},
+    "or-KE": {"repo": _L.format("or-KE"), "display": "Oromo"},
+    "so-SO": {"repo": _L.format("so-SO"), "display": "Somali"},
+    "st-ZA": {"repo": _L.format("st-ZA"), "display": "Sesotho"},
+    "sw-KE": {"repo": _L.format("sw-KE"), "display": "Swahili"},
+    "ti-ER": {"repo": _L.format("ti-ER"), "display": "Tigrinya"},
+    "tn-BW": {"repo": _L.format("tn-BW"), "display": "Tswana"},
+    "ts-ZA": {"repo": _L.format("ts-ZA"), "display": "Tsonga"},
+    "ve-ZA": {"repo": _L.format("ve-ZA"), "display": "Venda"},
+    "xh-ZA": {"repo": _L.format("xh-ZA"), "display": "Xhosa"},
+    "zu-ZA": {"repo": _L.format("zu-ZA"), "display": "Zulu"},
 }
 
 # Friendly aliases so callers can say "hausa" instead of "ha-NG".
@@ -64,6 +85,24 @@ ALIASES: Dict[str, str] = {
     "ewe": "ee-GH", "ee": "ee-GH",
     "berber": "ber-MA", "tamazight": "ber-MA", "ber": "ber-MA",
     "umbundu": "umb-AO", "umb": "umb-AO",
+    "amharic": "am-ET", "am": "am-ET",
+    "arabic": "ar-AR", "ar": "ar-AR",
+    "fula": "ff-SN", "fulani": "ff-SN", "pulaar": "ff-SN", "ff": "ff-SN",
+    "luganda": "lg-UG", "ganda": "lg-UG", "lg": "lg-UG",
+    "lingala": "ln-CD", "ln": "ln-CD",
+    "malagasy": "mg-MG", "mg": "mg-MG",
+    "sepedi": "nso-ZA", "pedi": "nso-ZA", "northern sotho": "nso-ZA", "nso": "nso-ZA",
+    "chichewa": "ny-MW", "nyanja": "ny-MW", "chewa": "ny-MW", "ny": "ny-MW",
+    "oromo": "or-KE", "afaan oromo": "or-KE", "or": "or-KE",
+    "somali": "so-SO", "so": "so-SO",
+    "sesotho": "st-ZA", "sotho": "st-ZA", "st": "st-ZA",
+    "swahili": "sw-KE", "kiswahili": "sw-KE", "sw": "sw-KE",
+    "tigrinya": "ti-ER", "ti": "ti-ER",
+    "tswana": "tn-BW", "setswana": "tn-BW", "tn": "tn-BW",
+    "tsonga": "ts-ZA", "xitsonga": "ts-ZA", "ts": "ts-ZA",
+    "venda": "ve-ZA", "tshivenda": "ve-ZA", "ve": "ve-ZA",
+    "xhosa": "xh-ZA", "isixhosa": "xh-ZA", "xh": "xh-ZA",
+    "zulu": "zu-ZA", "isizulu": "zu-ZA", "zu": "zu-ZA",
 }
 
 DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "ha-NG").strip()
