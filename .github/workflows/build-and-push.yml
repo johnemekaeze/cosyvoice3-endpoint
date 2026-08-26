@@ -1,4 +1,4 @@
-name: Build and push CosyVoice3 HF endpoint image
+name: Build and push CosyVoice3 endpoint image
 
 on:
   push:
@@ -20,6 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The CUDA + PyTorch + CosyVoice image exceeds the runner's default free disk.
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
