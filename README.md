@@ -25,7 +25,7 @@ curl https://<endpoint>.endpoints.huggingface.cloud/ \
   -d '{"inputs": "Sannu da safe", "language": "ha-NG"}'
 ```
 
-`language` accepts `ha-NG | tw-GH | ig-NG | ee-GH` (or `hausa|twi|igbo|ewe`).
+`language` accepts `ha-NG | tw-GH | ig-NG | ee-GH | ber-MA | umb-AO` (or `hausa|twi|igbo|ewe|berber|umbundu`).
 
 CosyVoice3 is a zero-shot cloning model, so every request synthesizes in the voice of a
 reference clip. A validated reference is bundled per language, so no extra arguments are

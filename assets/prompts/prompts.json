@@ -14,5 +14,13 @@
   "ee-GH": {
     "prompt_text": "Amewo le ablɔ lɔm eye woŋlɔ ŋu ɖe atsiwo dzi hele ɖe asi. Wo le awu yibɔ me eye ɖewo do awu vovovowo. Woble ta dzi ɖewo ɖɔ kuku dzi eye ɖewo ɖɔ kuku yibɔ. Woɖo gaŋkui yibɔ. Woŋlɔ ŋu ɖe atiawo ɖewo dzi be adzŋga, korona ga wo ɖe? Eye ɖewo ƒo nu tso adzɔga.<|endofprompt|>",
     "prompt_wav": "ee-GH.wav"
+  },
+  "ber-MA": {
+    "prompt_text": "netta, iḥulfa d lawan ad d-yaf win ara yuɣalen deg umkan-is<|endofprompt|>",
+    "prompt_wav": "ber-MA.wav"
+  },
+  "umb-AO": {
+    "prompt_text": "Alimoso vyowiñgi wo roma ndavyakwatele okulya kwatunda ko América ale vo Ásia oco vende vo Europa tunde ovita vyalima vyapita.<|endofprompt|>",
+    "prompt_wav": "umb-AO.wav"
   }
 }

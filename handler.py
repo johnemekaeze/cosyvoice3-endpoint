@@ -43,11 +43,17 @@ import torch
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("cosyvoice3-endpoint")
 
+# Every language here is backed by a published all-lab/cosyvoice3-individual-* repo AND
+# was confirmed to synthesize clean audio in the best-checkpoint comparison run (full-length
+# output, no high-frequency artefacts, healthy level). en-UG and wo-SN also have repos but
+# are deliberately excluded: en-UG collapses to 0.28s of noise, wo-SN renders ~30dB too quiet.
 MODELS: Dict[str, Dict[str, str]] = {
     "ha-NG": {"repo": "all-lab/cosyvoice3-individual-ha-NG", "display": "Hausa"},
     "tw-GH": {"repo": "all-lab/cosyvoice3-individual-tw-GH", "display": "Twi"},
     "ig-NG": {"repo": "all-lab/cosyvoice3-individual-ig-NG", "display": "Igbo"},
     "ee-GH": {"repo": "all-lab/cosyvoice3-individual-ee-GH", "display": "Ewe"},
+    "ber-MA": {"repo": "all-lab/cosyvoice3-individual-ber-MA", "display": "Berber (Tamazight)"},
+    "umb-AO": {"repo": "all-lab/cosyvoice3-individual-umb-AO", "display": "Umbundu"},
 }
 
 # Friendly aliases so callers can say "hausa" instead of "ha-NG".
@@ -56,6 +62,8 @@ ALIASES: Dict[str, str] = {
     "twi": "tw-GH", "tw": "tw-GH",
     "igbo": "ig-NG", "ig": "ig-NG",
     "ewe": "ee-GH", "ee": "ee-GH",
+    "berber": "ber-MA", "tamazight": "ber-MA", "ber": "ber-MA",
+    "umbundu": "umb-AO", "umb": "umb-AO",
 }
 
 DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "ha-NG").strip()
