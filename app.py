@@ -26,9 +26,10 @@ _INIT_ERROR: Optional[str] = None
 
 class TTSRequest(BaseModel):
     inputs: str = Field(..., min_length=1, description="Text to synthesize")
-    language: str = Field("ha-NG", description="ha-NG | tw-GH | ig-NG | ee-GH (or hausa|twi|igbo|ewe)")
-    prompt_text: Optional[str] = Field(None, description="Transcript of prompt_audio_base64, if overriding the bundled voice")
-    prompt_audio_base64: Optional[str] = Field(None, description="Reference voice clip (WAV, base64) to clone instead of the bundled one")
+    language: str = Field("hausa", description="Language name, e.g. hausa | swahili | zulu. See GET /languages")
+    voice: Optional[str] = Field(None, description="'male' or 'female'. Ignored when uploading your own clip.")
+    prompt_text: Optional[str] = Field(None, description="Transcript of prompt_audio_base64, required with it")
+    prompt_audio_base64: Optional[str] = Field(None, description="Your own reference voice clip (WAV, base64) to clone")
 
 
 def _get_handler():
@@ -85,9 +86,34 @@ def root():
     return {
         "service": "ALL Lab CosyVoice3 Inference Endpoint",
         "health": "/health",
+        "languages": "GET /languages",
         "tts": "POST /",
-        "languages": sorted(MODELS.keys()),
+        "languages_list": sorted(MODELS.keys()),
         "ready": _READY,
+    }
+
+
+@app.get("/languages")
+def languages():
+    """Everything a client needs to build a language/voice picker: the canonical name,
+    a display label, and which preset voices that language actually has."""
+    from handler import ALIASES, DEFAULT_LANGUAGE, MODELS, _load_bundled_prompts
+
+    prompts = _load_bundled_prompts()
+    out = []
+    for code in sorted(MODELS):
+        entry = prompts.get(code) or {}
+        voices = sorted(k for k in entry if k in ("male", "female")) or ["default"]
+        out.append({
+            "language": code,
+            "display": MODELS[code]["display"],
+            "voices": voices,
+            "aliases": sorted(a for a, t in ALIASES.items() if t == code),
+        })
+    return {
+        "count": len(out),
+        "default_language": DEFAULT_LANGUAGE,
+        "languages": out,
     }
 
 

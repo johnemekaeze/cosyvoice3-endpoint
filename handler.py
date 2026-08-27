@@ -147,6 +147,7 @@ ALIASES: Dict[str, str] = {
 }
 
 DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "hausa").strip()
+DEFAULT_VOICE = os.environ.get("COSYVOICE_DEFAULT_VOICE", "female").strip().lower()
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROMPT_DIR = os.path.join(APP_DIR, "assets", "prompts")
@@ -241,7 +242,15 @@ class EndpointHandler:
         return model, MODELS[key]
 
     def _prompt_for(self, key: str, data: Dict[str, Any]) -> tuple:
-        """Return (prompt_text, prompt_wav_path, cleanup_path_or_None)."""
+        """Decide which voice to clone.
+
+        Order of preference:
+          1. a voice the caller uploaded on this request (prompt_audio_base64 + prompt_text);
+          2. the built-in preset for the requested gender ("voice": "male"/"female");
+          3. the language's default preset.
+
+        Returns (prompt_text, prompt_wav_path, cleanup_path_or_None, source, voice_id).
+        """
         parameters = data.get("parameters") or {}
         audio_b64 = data.get("prompt_audio_base64") or parameters.get("prompt_audio_base64")
         text = data.get("prompt_text") or parameters.get("prompt_text")
@@ -249,17 +258,49 @@ class EndpointHandler:
         if audio_b64:
             if not text:
                 raise ValueError("`prompt_text` is required when `prompt_audio_base64` is supplied")
+            try:
+                raw = base64.b64decode(audio_b64, validate=True)
+            except Exception as exc:
+                raise ValueError(f"prompt_audio_base64 is not valid base64: {exc}") from exc
+            if len(raw) < 1024:
+                raise ValueError("prompt_audio_base64 decoded to less than 1KB -- not a usable WAV")
             tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-            tmp.write(base64.b64decode(audio_b64))
+            tmp.write(raw)
             tmp.close()
-            return text, tmp.name, tmp.name
+            try:
+                info = sf.info(tmp.name)
+            except Exception as exc:
+                os.remove(tmp.name)
+                raise ValueError(f"uploaded audio could not be read as WAV: {exc}") from exc
+            if info.duration < 1.0:
+                os.remove(tmp.name)
+                raise ValueError(f"uploaded audio is only {info.duration:.2f}s -- use 5-15s")
+            return text, tmp.name, tmp.name, "uploaded", "uploaded"
 
+        requested = (data.get("voice") or parameters.get("voice") or "").strip().lower()
         bundled = self._prompts.get(key)
         if not bundled:
             raise ValueError(
                 f"no bundled reference voice for '{key}' -- supply prompt_audio_base64 and prompt_text"
             )
-        return bundled["prompt_text"], os.path.join(PROMPT_DIR, bundled["prompt_wav"]), None
+
+        # prompts.json is either {"prompt_text","prompt_wav"} (single preset) or
+        # {"male": {...}, "female": {...}} once gendered presets exist.
+        if "prompt_wav" in bundled:
+            entry, voice_id = bundled, "default"
+        else:
+            available = sorted(k for k in bundled if k in ("male", "female"))
+            if requested in bundled:
+                entry, voice_id = bundled[requested], requested
+            elif requested:
+                raise ValueError(
+                    f"voice '{requested}' not available for '{key}'; available: {available}"
+                )
+            else:
+                pick = DEFAULT_VOICE if DEFAULT_VOICE in bundled else available[0]
+                entry, voice_id = bundled[pick], pick
+        return entry["prompt_text"], os.path.join(PROMPT_DIR, entry["prompt_wav"]), None, "preset", voice_id
+
 
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
         text = (data.get("inputs") or data.get("text") or "").strip()
@@ -269,12 +310,16 @@ class EndpointHandler:
         key = _resolve_language(data.get("language"))
         model, meta = self._get_model(key)
 
-        prompt_text, prompt_wav, cleanup = self._prompt_for(key, data)
+        # stage 1 -- the reference voice was accepted (uploaded and readable, or a preset)
+        prompt_text, prompt_wav, cleanup, source, voice_id = self._prompt_for(key, data)
+        voice_loaded = True
+
         # CosyVoice3 uses this sentinel to mark where the reference transcript ends;
         # it must be appended explicitly, it is not implied.
         if not prompt_text.endswith("<|endofprompt|>"):
             prompt_text = prompt_text + "<|endofprompt|>"
 
+        # stage 2 -- the voice was actually cloned and speech came back
         try:
             results = list(model.inference_zero_shot(text, prompt_text, prompt_wav, stream=False))
         finally:
@@ -283,12 +328,20 @@ class EndpointHandler:
                     os.remove(cleanup)
                 except OSError:
                     pass
-
         if not results:
             raise RuntimeError("synthesis produced no audio")
+        voice_cloned = True
 
         wav = results[0]["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
         sr = int(model.sample_rate)
+        duration = float(len(wav) / sr)
+        peak = float(np.max(np.abs(wav))) if wav.size else 0.0
+
+        # stage 3 -- the audio is real rather than silence or a collapsed generation.
+        # CosyVoice3 occasionally returns a fraction of a second regardless of input length,
+        # so check against the text rather than against zero.
+        expected_min = min(0.9, 0.06 * max(len(text.split()), 1))
+        audio_ok = bool(duration >= expected_min and peak > 0.02)
 
         buf = io.BytesIO()
         sf.write(buf, wav, sr, format="WAV")
@@ -297,8 +350,17 @@ class EndpointHandler:
         return {
             "language": key,
             "display": meta["display"],
+            "voice": voice_id,
+            "voice_source": source,
             "sampling_rate": sr,
-            "duration_sec": float(len(wav) / sr),
+            "duration_sec": duration,
+            "peak": round(peak, 4),
             "audio_base64": base64.b64encode(raw).decode("ascii"),
             "format": "wav",
+            "status": {
+                "voice_loaded": voice_loaded,
+                "voice_cloned": voice_cloned,
+                "audio_generated": audio_ok,
+            },
+            "ok": bool(voice_loaded and voice_cloned and audio_ok),
         }
