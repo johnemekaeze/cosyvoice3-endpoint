@@ -292,9 +292,20 @@ class EndpointHandler:
             available = sorted(k for k in bundled if k in ("male", "female"))
             if requested in bundled:
                 entry, voice_id = bundled[requested], requested
+            elif requested in ("male", "female"):
+                # Say plainly that this language has no voice of that gender and point at
+                # what it does have -- a bare "not available" reads like a bug to a caller.
+                other = [v for v in available if v != requested]
+                alt = (f" A {other[0]} voice is available for {key}: send "
+                       f'"voice": "{other[0]}".') if other else ""
+                raise ValueError(
+                    f"No {requested} voice is available for {key} -- no suitable {requested} "
+                    f"recording was found in the source corpus for this language.{alt}"
+                )
             elif requested:
                 raise ValueError(
-                    f"voice '{requested}' not available for '{key}'; available: {available}"
+                    f"voice '{requested}' is not recognised; use 'male' or 'female'. "
+                    f"Available for {key}: {available}"
                 )
             else:
                 pick = DEFAULT_VOICE if DEFAULT_VOICE in bundled else available[0]
