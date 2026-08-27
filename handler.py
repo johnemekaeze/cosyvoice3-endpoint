@@ -51,61 +51,102 @@ log = logging.getLogger("cosyvoice3-endpoint")
 # and bem-ZM (generation errored outright).
 _L = "all-lab/cosyvoice3-individual-{}"
 MODELS: Dict[str, Dict[str, str]] = {
-    "ha-NG": {"repo": _L.format("ha-NG"), "display": "Hausa"},
-    "tw-GH": {"repo": _L.format("tw-GH"), "display": "Twi"},
-    "ig-NG": {"repo": _L.format("ig-NG"), "display": "Igbo"},
-    "ee-GH": {"repo": _L.format("ee-GH"), "display": "Ewe"},
-    "ber-MA": {"repo": _L.format("ber-MA"), "display": "Berber (Tamazight)"},
-    "umb-AO": {"repo": _L.format("umb-AO"), "display": "Umbundu"},
-    "am-ET": {"repo": _L.format("am-ET"), "display": "Amharic"},
-    "ar-AR": {"repo": _L.format("ar-AR"), "display": "Arabic"},
-    "ff-SN": {"repo": _L.format("ff-SN"), "display": "Fula"},
-    "lg-UG": {"repo": _L.format("lg-UG"), "display": "Luganda"},
-    "ln-CD": {"repo": _L.format("ln-CD"), "display": "Lingala"},
-    "mg-MG": {"repo": _L.format("mg-MG"), "display": "Malagasy"},
-    "nso-ZA": {"repo": _L.format("nso-ZA"), "display": "Sepedi"},
-    "ny-MW": {"repo": _L.format("ny-MW"), "display": "Chichewa"},
-    "or-KE": {"repo": _L.format("or-KE"), "display": "Oromo"},
-    "so-SO": {"repo": _L.format("so-SO"), "display": "Somali"},
-    "st-ZA": {"repo": _L.format("st-ZA"), "display": "Sesotho"},
-    "sw-KE": {"repo": _L.format("sw-KE"), "display": "Swahili"},
-    "ti-ER": {"repo": _L.format("ti-ER"), "display": "Tigrinya"},
-    "tn-BW": {"repo": _L.format("tn-BW"), "display": "Tswana"},
-    "ts-ZA": {"repo": _L.format("ts-ZA"), "display": "Tsonga"},
-    "ve-ZA": {"repo": _L.format("ve-ZA"), "display": "Venda"},
-    "xh-ZA": {"repo": _L.format("xh-ZA"), "display": "Xhosa"},
-    "zu-ZA": {"repo": _L.format("zu-ZA"), "display": "Zulu"},
+    "hausa": {"repo": _L.format("hausa"), "display": "Hausa"},
+    "twi": {"repo": _L.format("twi"), "display": "Twi"},
+    "igbo": {"repo": _L.format("igbo"), "display": "Igbo"},
+    "ewe": {"repo": _L.format("ewe"), "display": "Ewe"},
+    "berber": {"repo": _L.format("berber"), "display": "Berber (Tamazight)"},
+    "umbundu": {"repo": _L.format("umbundu"), "display": "Umbundu"},
+    "amharic": {"repo": _L.format("amharic"), "display": "Amharic"},
+    "arabic": {"repo": _L.format("arabic"), "display": "Arabic"},
+    "fula": {"repo": _L.format("fula"), "display": "Fula"},
+    "luganda": {"repo": _L.format("luganda"), "display": "Luganda"},
+    "lingala": {"repo": _L.format("lingala"), "display": "Lingala"},
+    "malagasy": {"repo": _L.format("malagasy"), "display": "Malagasy"},
+    "sepedi": {"repo": _L.format("sepedi"), "display": "Sepedi"},
+    "chichewa": {"repo": _L.format("chichewa"), "display": "Chichewa"},
+    "oromo": {"repo": _L.format("oromo"), "display": "Oromo"},
+    "somali": {"repo": _L.format("somali"), "display": "Somali"},
+    "sesotho": {"repo": _L.format("sesotho"), "display": "Sesotho"},
+    "swahili": {"repo": _L.format("swahili"), "display": "Swahili"},
+    "tigrinya": {"repo": _L.format("tigrinya"), "display": "Tigrinya"},
+    "tswana": {"repo": _L.format("tswana"), "display": "Tswana"},
+    "tsonga": {"repo": _L.format("tsonga"), "display": "Tsonga"},
+    "venda": {"repo": _L.format("venda"), "display": "Venda"},
+    "xhosa": {"repo": _L.format("xhosa"), "display": "Xhosa"},
+    "zulu": {"repo": _L.format("zulu"), "display": "Zulu"},
 }
 
-# Friendly aliases so callers can say "hausa" instead of "ha-NG".
+# Legacy ISO-style codes (ha-NG, sw-KE, ...) remain accepted so anything already written
+# against them keeps working; plain language names are the canonical form.
 ALIASES: Dict[str, str] = {
-    "hausa": "ha-NG", "ha": "ha-NG",
-    "twi": "tw-GH", "tw": "tw-GH",
-    "igbo": "ig-NG", "ig": "ig-NG",
-    "ewe": "ee-GH", "ee": "ee-GH",
-    "berber": "ber-MA", "tamazight": "ber-MA", "ber": "ber-MA",
-    "umbundu": "umb-AO", "umb": "umb-AO",
-    "amharic": "am-ET", "am": "am-ET",
-    "arabic": "ar-AR", "ar": "ar-AR",
-    "fula": "ff-SN", "fulani": "ff-SN", "pulaar": "ff-SN", "ff": "ff-SN",
-    "luganda": "lg-UG", "ganda": "lg-UG", "lg": "lg-UG",
-    "lingala": "ln-CD", "ln": "ln-CD",
-    "malagasy": "mg-MG", "mg": "mg-MG",
-    "sepedi": "nso-ZA", "pedi": "nso-ZA", "northern sotho": "nso-ZA", "nso": "nso-ZA",
-    "chichewa": "ny-MW", "nyanja": "ny-MW", "chewa": "ny-MW", "ny": "ny-MW",
-    "oromo": "or-KE", "afaan oromo": "or-KE", "or": "or-KE",
-    "somali": "so-SO", "so": "so-SO",
-    "sesotho": "st-ZA", "sotho": "st-ZA", "st": "st-ZA",
-    "swahili": "sw-KE", "kiswahili": "sw-KE", "sw": "sw-KE",
-    "tigrinya": "ti-ER", "ti": "ti-ER",
-    "tswana": "tn-BW", "setswana": "tn-BW", "tn": "tn-BW",
-    "tsonga": "ts-ZA", "xitsonga": "ts-ZA", "ts": "ts-ZA",
-    "venda": "ve-ZA", "tshivenda": "ve-ZA", "ve": "ve-ZA",
-    "xhosa": "xh-ZA", "isixhosa": "xh-ZA", "xh": "xh-ZA",
-    "zulu": "zu-ZA", "isizulu": "zu-ZA", "zu": "zu-ZA",
+    "afaan oromo": "oromo",
+    "am": "amharic",
+    "am-et": "amharic",
+    "ar": "arabic",
+    "ar-ar": "arabic",
+    "ber": "berber",
+    "ber-ma": "berber",
+    "chewa": "chichewa",
+    "ee": "ewe",
+    "ee-gh": "ewe",
+    "ff": "fula",
+    "ff-sn": "fula",
+    "fulani": "fula",
+    "ganda": "luganda",
+    "ha": "hausa",
+    "ha-ng": "hausa",
+    "ig": "igbo",
+    "ig-ng": "igbo",
+    "isixhosa": "xhosa",
+    "isizulu": "zulu",
+    "kiswahili": "swahili",
+    "lg": "luganda",
+    "lg-ug": "luganda",
+    "ln": "lingala",
+    "ln-cd": "lingala",
+    "mg": "malagasy",
+    "mg-mg": "malagasy",
+    "northern sotho": "sepedi",
+    "nso": "sepedi",
+    "nso-za": "sepedi",
+    "ny": "chichewa",
+    "ny-mw": "chichewa",
+    "nyanja": "chichewa",
+    "or": "oromo",
+    "or-ke": "oromo",
+    "pedi": "sepedi",
+    "pulaar": "fula",
+    "setswana": "tswana",
+    "so": "somali",
+    "so-so": "somali",
+    "sotho": "sesotho",
+    "st": "sesotho",
+    "st-za": "sesotho",
+    "sw": "swahili",
+    "sw-ke": "swahili",
+    "tamazight": "berber",
+    "ti": "tigrinya",
+    "ti-er": "tigrinya",
+    "tn": "tswana",
+    "tn-bw": "tswana",
+    "ts": "tsonga",
+    "ts-za": "tsonga",
+    "tshivenda": "venda",
+    "tw": "twi",
+    "tw-gh": "twi",
+    "umb": "umbundu",
+    "umb-ao": "umbundu",
+    "ve": "venda",
+    "ve-za": "venda",
+    "xh": "xhosa",
+    "xh-za": "xhosa",
+    "xitsonga": "tsonga",
+    "zu": "zulu",
+    "zu-za": "zulu",
 }
 
-DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "ha-NG").strip()
+DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "hausa").strip()
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROMPT_DIR = os.path.join(APP_DIR, "assets", "prompts")
@@ -124,13 +165,18 @@ def _hf_token() -> Optional[str]:
 
 
 def _resolve_language(language: Optional[str]) -> str:
+    """Accept the canonical plain name in any case ("Zulu", "zulu"), a friendly
+    alias ("isizulu", "kiswahili"), or a legacy ISO-style code ("zu-ZA")."""
     key = (language or DEFAULT_LANGUAGE).strip()
     if key in MODELS:
         return key
     lowered = key.lower()
+    if lowered in MODELS:
+        return lowered
     if lowered in ALIASES:
         return ALIASES[lowered]
     raise ValueError(f"Unsupported language '{language}'. Choose: {sorted(MODELS)}")
+
 
 
 def _load_bundled_prompts() -> Dict[str, Dict[str, str]]:

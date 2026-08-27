@@ -22,10 +22,14 @@ Inference Endpoints -> Custom Container:
 curl https://<endpoint>.endpoints.huggingface.cloud/ \
   -H "Authorization: Bearer $HF_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"inputs": "Sannu da safe", "language": "ha-NG"}'
+  -d '{"inputs": "Sannu da safe", "language": "hausa"}'
 ```
 
-`language` accepts any of these codes (plain names like `hausa`, `swahili`, `zulu` work too):
+`language` takes the plain language name: `hausa`, `twi`, `igbo`, `ewe`, `berber`, `umbundu`,
+`amharic`, `arabic`, `fula`, `luganda`, `lingala`, `malagasy`, `sepedi`, `chichewa`, `oromo`,
+`somali`, `sesotho`, `swahili`, `tigrinya`, `tswana`, `tsonga`, `venda`, `xhosa`, `zulu`.
+Case-insensitive; common alternatives (`isizulu`, `kiswahili`, ...) and legacy ISO-style codes
+(`ha-NG`, `sw-KE`, ...) are also accepted.
 
 | code | language | code | language | code | language |
 |---|---|---|---|---|---|
@@ -51,7 +55,7 @@ Response: `{"language", "display", "sampling_rate", "duration_sec", "audio_base6
 
 ## Notes
 
-- Only the default language (`ha-NG`, override with `COSYVOICE_DEFAULT_LANGUAGE`) is warmed
+- Only the default language (`hausa`, override with `COSYVOICE_DEFAULT_LANGUAGE`) is warmed
   at startup; the others load on first request for that language. That first call to a new
   language downloads ~5GB of weights and takes ~2.5 minutes; later calls to it are ~11s.
 - GHCR packages default to private. Make the package public via the web UI

@@ -1,98 +1,98 @@
 {
-  "ha-NG": {
+  "hausa": {
     "prompt_text": "Anya ku na da masaniyar cewa za ku iya tambaya ta da Hausa ko Turanci ko kuma Kanuri kai har ma da Shuwa?",
-    "prompt_wav": "ha-NG.wav"
+    "prompt_wav": "hausa.wav"
   },
-  "tw-GH": {
+  "twi": {
     "prompt_text": "Nnansa yi wɔkeka se aguaman a morebɔ wɔ asafo no mu no yɛ hu a abosonsomfo mpo renyɛ saa Mate mpo sɛ obi afa n agya yere",
-    "prompt_wav": "tw-GH.wav"
+    "prompt_wav": "twi.wav"
   },
-  "ig-NG": {
+  "igbo": {
     "prompt_text": "A ga-enwe idei mmiri gbụrụ-gbúrụ mpaghara ahụ ma ọ bụrụ na i meghị ihe ugbu a",
-    "prompt_wav": "ig-NG.wav"
+    "prompt_wav": "igbo.wav"
   },
-  "ee-GH": {
+  "ewe": {
     "prompt_text": "Tokɔmetɔ aɖewoe nye esiawo vovovo wodo nu vovovo ɖewo do awu eye amadede ŋɔtaŋɔta le eme ɖeow do afɔwui eye ɖewo medo afɔwui o.",
-    "prompt_wav": "ee-GH.wav"
+    "prompt_wav": "ewe.wav"
   },
-  "ber-MA": {
+  "berber": {
     "prompt_text": "umrar yellan di lbir.Uccen yuder, inisi yuli-d.Yenṭeq wuccen ɣer yinisi : saḥḥa deg-k tkellxeḍ-iyi. Yerra-as yinisi : akka i d ddunit ay uccen, wa yuder wa yuli.",
-    "prompt_wav": "ber-MA.wav"
+    "prompt_wav": "berber.wav"
   },
-  "umb-AO": {
+  "umbundu": {
     "prompt_text": "Alimoso vyowiñgi wo roma ndavyakwatele okulya kwatunda ko América ale vo Ásia oco vende vo Europa tunde ovita vyalima vyapita.",
-    "prompt_wav": "umb-AO.wav"
+    "prompt_wav": "umbundu.wav"
   },
-  "am-ET": {
+  "amharic": {
     "prompt_text": "እንደ የሜትሪክ ስርዓት አጠቃቀም፣ ከእውነተኝነት ወደ ህዝባዊነት መቀየር፣ ብሔራዊነት እና አገሪቱ የህዝቡ እንጂ የአንድ ብቸኛ ገዢ አለመሆኗን ያሉ በርካታ ማህበራዊ እና ፖለቲካዊ ተፅእኖዎች አሉ፡፡",
-    "prompt_wav": "am-ET.wav"
+    "prompt_wav": "amharic.wav"
   },
-  "ar-AR": {
+  "arabic": {
     "prompt_text": "ها تمام مشكورة يا خالتي مالي نفس ايش بلاش قبل شوي ايش زينت ما في شي بس صدعت عن اذنك بروح انام",
-    "prompt_wav": "ar-AR.wav"
+    "prompt_wav": "arabic.wav"
   },
-  "ff-SN": {
+  "fula": {
     "prompt_text": "Ɗoo bo moggal himɓe on, ɓe ummi julurde nakusa ,ɓe ummi sallikeere yannde julde komoy ɗo fawni, ndaa o ɗo hippi salaya, haa dow hoore maako ɓe ɗo dilla.",
-    "prompt_wav": "ff-SN.wav"
+    "prompt_wav": "fula.wav"
   },
-  "lg-UG": {
+  "luganda": {
     "prompt_text": "Olaba n'ekitabo ekitukuvu kigamba nti ataakole n'okulya taalyenga.",
-    "prompt_wav": "lg-UG.wav"
+    "prompt_wav": "luganda.wav"
   },
-  "ln-CD": {
+  "lingala": {
     "prompt_text": "bana basili na kokufa ngai matoyi lokola ezosala te",
-    "prompt_wav": "ln-CD.wav"
+    "prompt_wav": "lingala.wav"
   },
-  "mg-MG": {
+  "malagasy": {
     "prompt_text": "Fiara fitateram-bahoaka izay miloko fotsy ambony, maitso apovoany ary mavo ambany ; ary ahitana olona maromaro ao anatiny.",
-    "prompt_wav": "mg-MG.wav"
+    "prompt_wav": "malagasy.wav"
   },
-  "nso-ZA": {
+  "sepedi": {
     "prompt_text": "Ba sa leka go laodiša gore naa thulano yeo e be e le ye kgolo ga kae gomme Lefase le tlo amega ka tsela efe.",
-    "prompt_wav": "nso-ZA.wav"
+    "prompt_wav": "sepedi.wav"
   },
-  "ny-MW": {
+  "chichewa": {
     "prompt_text": "Ikuchenjeza Palibe amene angatsimikizire kuti chilichonse ku Iraq pakadali pano chidzayimitsa nkhondo zamipatuko, kuyimitsa kukula kwa ziwawa, kapena kusokonekera.",
-    "prompt_wav": "ny-MW.wav"
+    "prompt_wav": "chichewa.wav"
   },
-  "or-KE": {
+  "oromo": {
     "prompt_text": "Boombiin dabalataa sadii yeroo sa’aatii lamaa keessatti cinaa gamoo mootummaatti dhuka’e.",
-    "prompt_wav": "or-KE.wav"
+    "prompt_wav": "oromo.wav"
   },
-  "so-SO": {
+  "somali": {
     "prompt_text": "(Sky Sports) Ciyaaryahanka loo xiisay Liverpool, Nicolas Pépé, waxaa la doonayaa Inter Milan iyadoo la bixiyo sideetan malyan.",
-    "prompt_wav": "so-SO.wav"
+    "prompt_wav": "somali.wav"
   },
-  "st-ZA": {
+  "sesotho": {
     "prompt_text": "Ena ke ketsahalo e kgolo moo balemi ba tla beng ba kopane mmoho le ho bona sesebediswa se setjha sa moraorao tjena hammoho le dikenngwamobung tsa tlhahiso.",
-    "prompt_wav": "st-ZA.wav"
+    "prompt_wav": "sesotho.wav"
   },
-  "sw-KE": {
+  "swahili": {
     "prompt_text": "Kuna rundo la vitunguu vimevunwa. Vinaonekana vimekuwa vizuri na vipo tayari kwenda sokoni kuuzwa. Vitunguu vina rangi ya zambarau na vina ukubwa tofauti.",
-    "prompt_wav": "sw-KE.wav"
+    "prompt_wav": "swahili.wav"
   },
-  "ti-ER": {
+  "tigrinya": {
     "prompt_text": "ናይ በይነ መረብ እደጊት መድራኽ ተጠቀምቲ ክንሆን ለና እዮን።",
-    "prompt_wav": "ti-ER.wav"
+    "prompt_wav": "tigrinya.wav"
   },
-  "tn-BW": {
+  "tswana": {
     "prompt_text": "Go duela lekgetho go tlhokiwa ditlhankana tse dingwe morago ga ngwaga ya ditšhelete mme ga di kgonwe go dirisiwa go laola ditšhelete tsa go tsamaisa kgwebo ya gago.",
-    "prompt_wav": "tn-BW.wav"
+    "prompt_wav": "tswana.wav"
   },
-  "ts-ZA": {
+  "tsonga": {
     "prompt_text": "Xibukwana xa nhlayiseko wa rihanyo ra swiharhi xa vahlayisi va timbuti.",
-    "prompt_wav": "ts-ZA.wav"
+    "prompt_wav": "tsonga.wav"
   },
-  "ve-ZA": {
+  "venda": {
     "prompt_text": "Wa u thoma ndi mulayotibe wa u khwinisa mulayo wa khwiniso ya mulayo wa zwa vhutshinyi vhutshinyi ha zwa vhudzekani na mafhungo a elanaho nazwo.",
-    "prompt_wav": "ve-ZA.wav"
+    "prompt_wav": "venda.wav"
   },
-  "xh-ZA": {
+  "xhosa": {
     "prompt_text": "Incede abantu abatsha abafana noWayne Mansfield oneminyaka engama-33 ubudala.",
-    "prompt_wav": "xh-ZA.wav"
+    "prompt_wav": "xhosa.wav"
   },
-  "zu-ZA": {
+  "zulu": {
     "prompt_text": "Kuloluhlobo lwesithuthi olunamandla wonke umuntu ngandlelathile uxhumene, futhi usekela uhlelo lokuthutha olusekelwe ezimotweni ezincane.",
-    "prompt_wav": "zu-ZA.wav"
+    "prompt_wav": "zulu.wav"
   }
 }
