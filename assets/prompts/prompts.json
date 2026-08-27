@@ -4,19 +4,19 @@
     "prompt_wav": "hausa.wav"
   },
   "twi": {
-    "prompt_text": "Nnansa yi wɔkeka se aguaman a morebɔ wɔ asafo no mu no yɛ hu a abosonsomfo mpo renyɛ saa Mate mpo sɛ obi afa n agya yere",
+    "prompt_text": "Nson ahodoɔ nwɔtwe ma yɛn aduonum-nsia. Nson mmɔho nwɔtwe ma yɛnya aduonum-nsia.",
     "prompt_wav": "twi.wav"
   },
   "igbo": {
-    "prompt_text": "A ga-enwe idei mmiri gbụrụ-gbúrụ mpaghara ahụ ma ọ bụrụ na i meghị ihe ugbu a",
+    "prompt_text": "Akara ya maka mgbututu n'ụbọchị Tuzde, mana azọpụtara ya ka ụlọ ikpe kpegharịrị ikpe na mberede.",
     "prompt_wav": "igbo.wav"
   },
   "ewe": {
-    "prompt_text": "Tokɔmetɔ aɖewoe nye esiawo vovovo wodo nu vovovo ɖewo do awu eye amadede ŋɔtaŋɔta le eme ɖeow do afɔwui eye ɖewo medo afɔwui o.",
+    "prompt_text": "Amewo le ablɔ lɔm eye woŋlɔ ŋu ɖe atsiwo dzi hele ɖe asi. Wo le awu yibɔ me eye ɖewo do awu vovovowo. Woble ta dzi ɖewo ɖɔ kuku dzi eye ɖewo ɖɔ kuku yibɔ. Woɖo gaŋkui yibɔ. Woŋlɔ ŋu ɖe atiawo ɖewo dzi be adzŋga, korona ga wo ɖe? Eye ɖewo ƒo nu tso adzɔga.",
     "prompt_wav": "ewe.wav"
   },
   "berber": {
-    "prompt_text": "umrar yellan di lbir.Uccen yuder, inisi yuli-d.Yenṭeq wuccen ɣer yinisi : saḥḥa deg-k tkellxeḍ-iyi. Yerra-as yinisi : akka i d ddunit ay uccen, wa yuder wa yuli.",
+    "prompt_text": "netta, iḥulfa d lawan ad d-yaf win ara yuɣalen deg umkan-is",
     "prompt_wav": "berber.wav"
   },
   "umbundu": {
