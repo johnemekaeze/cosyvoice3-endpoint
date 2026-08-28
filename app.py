@@ -27,9 +27,16 @@ _INIT_ERROR: Optional[str] = None
 class TTSRequest(BaseModel):
     inputs: str = Field(..., min_length=1, description="Text to synthesize")
     language: str = Field("hausa", description="Language name, e.g. hausa | swahili | zulu. See GET /languages")
-    voice: Optional[str] = Field(None, description="'male' or 'female'. Ignored when uploading your own clip.")
-    prompt_text: Optional[str] = Field(None, description="Transcript of prompt_audio_base64, required with it")
+    voice: Optional[str] = Field(None, description="'male' or 'female' preset. Ignored if you supply your own clip.")
+    voice_id: Optional[str] = Field(None, description="Id of a voice previously sent to POST /voice")
+    prompt_text: Optional[str] = Field(None, description="Optional transcript of your clip. Omitted is fine and safer.")
     prompt_audio_base64: Optional[str] = Field(None, description="Your own reference voice clip (WAV, base64) to clone")
+
+
+class VoiceUpload(BaseModel):
+    audio_base64: str = Field(..., description="The recorded voice clip, WAV, base64. 5-15s works best.")
+    prompt_text: Optional[str] = Field(None, description="Optional transcript. Leave empty unless it matches the audio exactly.")
+    name: Optional[str] = Field(None, description="Your own label for this voice")
 
 
 def _get_handler():
@@ -126,6 +133,56 @@ def languages():
         "default_language": DEFAULT_LANGUAGE,
         "languages": out,
     }
+
+
+@app.post("/voice")
+def upload_voice(req: VoiceUpload) -> Dict[str, Any]:
+    """Register a recorded voice for cloning and get back a voice_id.
+
+    Returns 200 with uploaded=true once the clip is decoded and confirmed to be a readable
+    WAV of usable length -- that is the "did the upload work" signal. Supplying prompt_text
+    is optional and usually better left out: without it the reference text is never fed to
+    the model, so it cannot be spoken before the requested text.
+    """
+    try:
+        from handler import register_voice
+
+        return register_voice(req.audio_base64, req.prompt_text, req.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400,
+                            detail={"error": str(exc), "uploaded": False, "retry": False}) from exc
+    except Exception as exc:
+        log.exception("voice upload failed")
+        raise HTTPException(status_code=500,
+                            detail={"error": f"Upload failed: {exc}", "uploaded": False,
+                                    "retry": True}) from exc
+
+
+@app.get("/voice/{voice_id}")
+def voice_status(voice_id: str) -> Dict[str, Any]:
+    """Whether a previously uploaded voice is still registered on this replica."""
+    from handler import VOICE_STORE
+
+    rec = VOICE_STORE.get(voice_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail={
+            "error": f"unknown voice_id '{voice_id}'", "uploaded": False,
+            "note": "Voices are held per replica and are lost when it restarts. Upload again."})
+    return {"voice_id": voice_id, "uploaded": True, "name": rec.get("name"),
+            "duration_sec": rec.get("duration_sec"), "sample_rate": rec.get("sample_rate"),
+            "has_transcript": bool(rec.get("prompt_text")),
+            "mode": "zero_shot" if rec.get("prompt_text") else "cross_lingual"}
+
+
+@app.get("/voices")
+def list_voices() -> Dict[str, Any]:
+    from handler import VOICE_STORE
+
+    return {"count": len(VOICE_STORE),
+            "voices": [{"voice_id": k, "name": v.get("name"),
+                        "duration_sec": v.get("duration_sec"),
+                        "has_transcript": bool(v.get("prompt_text"))}
+                       for k, v in VOICE_STORE.items()]}
 
 
 @app.post("/")

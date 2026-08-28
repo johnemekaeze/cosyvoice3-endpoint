@@ -190,6 +190,54 @@ def _load_bundled_prompts() -> Dict[str, Dict[str, str]]:
         return {}
 
 
+# Voices uploaded through POST /voice, kept for the life of the replica so a caller can
+# upload once and then synthesize repeatedly by voice_id.
+VOICE_STORE: Dict[str, Dict[str, Any]] = {}
+
+
+def _decode_voice(audio_b64: str, prompt_text: Optional[str] = None) -> str:
+    """Decode an uploaded clip to a temp wav, failing loudly if it is not usable."""
+    try:
+        raw = base64.b64decode(audio_b64, validate=True)
+    except Exception as exc:
+        raise ValueError(f"prompt_audio_base64 is not valid base64: {exc}") from exc
+    if len(raw) < 1024:
+        raise ValueError("uploaded audio decoded to under 1KB -- not a usable WAV")
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.write(raw)
+    tmp.close()
+    try:
+        info = sf.info(tmp.name)
+    except Exception as exc:
+        os.remove(tmp.name)
+        raise ValueError(f"uploaded audio could not be read as WAV: {exc}") from exc
+    if info.duration < 1.0:
+        os.remove(tmp.name)
+        raise ValueError(f"uploaded audio is only {info.duration:.2f}s -- use a 5-15s clip")
+    if info.duration > 30.0:
+        os.remove(tmp.name)
+        raise ValueError(f"uploaded audio is {info.duration:.1f}s -- the model accepts at most 30s")
+    return tmp.name
+
+
+def register_voice(audio_b64: str, prompt_text: Optional[str] = None,
+                   name: Optional[str] = None) -> Dict[str, Any]:
+    """Validate and store an uploaded voice, returning its id and measured properties."""
+    import uuid
+    path = _decode_voice(audio_b64)
+    info = sf.info(path)
+    vid = uuid.uuid4().hex[:12]
+    VOICE_STORE[vid] = {"path": path, "prompt_text": (prompt_text or "").strip() or None,
+                        "name": name, "duration_sec": round(info.duration, 2),
+                        "sample_rate": info.samplerate}
+    return {"voice_id": vid, "uploaded": True, "duration_sec": round(info.duration, 2),
+            "sample_rate": info.samplerate, "channels": info.channels,
+            "has_transcript": bool(prompt_text),
+            "mode": "zero_shot" if prompt_text else "cross_lingual",
+            "note": ("Voice stored. Use it by sending \"voice_id\": \"%s\" with your text. "
+                     "Without a transcript the reference is never spoken." % vid)}
+
+
 class EndpointHandler:
     """Loaded once per replica by HF's Inference Endpoint runtime."""
 
@@ -233,68 +281,68 @@ class EndpointHandler:
         self._unload()
         repo = MODELS[key]["repo"]
         log.info("downloading %s from %s", key, repo)
-        local_dir = snapshot_download(repo_id=repo, token=_hf_token(), ignore_patterns=_SNAPSHOT_IGNORE)
-        log.info("loading %s on %s", key, self._device)
-        model = CosyVoice3(local_dir, fp16=False)
+        try:
+            local_dir = snapshot_download(repo_id=repo, token=_hf_token(), ignore_patterns=_SNAPSHOT_IGNORE)
+            log.info("loading %s on %s", key, self._device)
+            model = CosyVoice3(local_dir, fp16=False)
+        except Exception as exc:
+            # a failed switch must not leave a half-loaded model behind, and must not take
+            # the replica down -- the caller gets a retryable error instead
+            self._unload()
+            log.exception("failed to load %s", key)
+            raise RuntimeError(f"could not load the {key} model: {exc}") from exc
         self._cache["name"] = key
         self._cache["model"] = model
         log.info("loaded %s", key)
         return model, MODELS[key]
 
     def _prompt_for(self, key: str, data: Dict[str, Any]) -> tuple:
-        """Decide which voice to clone.
+        """Decide which voice to clone, and whether a reference transcript is used.
 
         Order of preference:
-          1. a voice the caller uploaded on this request (prompt_audio_base64 + prompt_text);
+          1. a voice uploaded on this request (prompt_audio_base64);
           2. the built-in preset for the requested gender ("voice": "male"/"female");
           3. the language's default preset.
 
-        Returns (prompt_text, prompt_wav_path, cleanup_path_or_None, source, voice_id).
+        prompt_text comes back as None whenever we have no transcript we trust. That
+        matters: with a transcript the model runs zero-shot, which conditions the LLM on
+        the reference text and can end up SPEAKING it before the requested text. Without
+        one it runs cross-lingual, which keeps the speaker identity but drops the
+        reference text from the LLM entirely, so the reference can never be read aloud.
+
+        Returns (prompt_text_or_None, wav_path, cleanup_path_or_None, source, voice_id).
         """
         parameters = data.get("parameters") or {}
         audio_b64 = data.get("prompt_audio_base64") or parameters.get("prompt_audio_base64")
         text = data.get("prompt_text") or parameters.get("prompt_text")
+        voice_id = data.get("voice_id") or parameters.get("voice_id")
+
+        # a previously uploaded voice, referenced by id
+        if voice_id:
+            rec = VOICE_STORE.get(voice_id)
+            if not rec:
+                raise ValueError(f"unknown voice_id '{voice_id}'. Upload one at POST /voice first.")
+            return rec.get("prompt_text"), rec["path"], None, "uploaded", voice_id
 
         if audio_b64:
-            if not text:
-                raise ValueError("`prompt_text` is required when `prompt_audio_base64` is supplied")
-            try:
-                raw = base64.b64decode(audio_b64, validate=True)
-            except Exception as exc:
-                raise ValueError(f"prompt_audio_base64 is not valid base64: {exc}") from exc
-            if len(raw) < 1024:
-                raise ValueError("prompt_audio_base64 decoded to less than 1KB -- not a usable WAV")
-            tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-            tmp.write(raw)
-            tmp.close()
-            try:
-                info = sf.info(tmp.name)
-            except Exception as exc:
-                os.remove(tmp.name)
-                raise ValueError(f"uploaded audio could not be read as WAV: {exc}") from exc
-            if info.duration < 1.0:
-                os.remove(tmp.name)
-                raise ValueError(f"uploaded audio is only {info.duration:.2f}s -- use 5-15s")
-            return text, tmp.name, tmp.name, "uploaded", "uploaded"
+            path = _decode_voice(audio_b64)
+            # transcript is optional: without it we simply use cross-lingual mode
+            return (text.strip() if text else None), path, path, "uploaded", "uploaded"
 
         requested = (data.get("voice") or parameters.get("voice") or "").strip().lower()
         bundled = self._prompts.get(key)
         if not bundled:
             raise ValueError(
-                f"no bundled reference voice for '{key}' -- supply prompt_audio_base64 and prompt_text"
+                f"no bundled reference voice for '{key}' -- supply prompt_audio_base64"
             )
 
-        # prompts.json is either {"prompt_text","prompt_wav"} (single preset) or
-        # {"male": {...}, "female": {...}} once gendered presets exist.
         if "prompt_wav" in bundled:
-            entry, voice_id = bundled, "default"
+            entry, vid = bundled, "default"
         else:
             available = sorted(k for k in bundled if k in ("male", "female"))
             if requested in bundled:
-                entry, voice_id = bundled[requested], requested
+                entry, vid = bundled[requested], requested
             elif requested in ("male", "female"):
-                # Say plainly that this language has no voice of that gender and point at
-                # what it does have -- a bare "not available" reads like a bug to a caller.
                 other = [v for v in available if v != requested]
                 alt = (f" A {other[0]} voice is available for {key}: send "
                        f'"voice": "{other[0]}".') if other else ""
@@ -309,8 +357,10 @@ class EndpointHandler:
                 )
             else:
                 pick = DEFAULT_VOICE if DEFAULT_VOICE in bundled else available[0]
-                entry, voice_id = bundled[pick], pick
-        return entry["prompt_text"], os.path.join(PROMPT_DIR, entry["prompt_wav"]), None, "preset", voice_id
+                entry, vid = bundled[pick], pick
+        # Presets deliberately pass None: the reference must never be spoken, and the
+        # bundled transcripts are corpus metadata we cannot guarantee match the audio.
+        return None, os.path.join(PROMPT_DIR, entry["prompt_wav"]), None, "preset", vid
 
 
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -325,14 +375,20 @@ class EndpointHandler:
         prompt_text, prompt_wav, cleanup, source, voice_id = self._prompt_for(key, data)
         voice_loaded = True
 
-        # CosyVoice3 uses this sentinel to mark where the reference transcript ends;
-        # it must be appended explicitly, it is not implied.
-        if not prompt_text.endswith("<|endofprompt|>"):
-            prompt_text = prompt_text + "<|endofprompt|>"
-
-        # stage 2 -- the voice was actually cloned and speech came back
+        # stage 2 -- clone the voice and synthesize ONLY the requested text
         try:
-            results = list(model.inference_zero_shot(text, prompt_text, prompt_wav, stream=False))
+            if prompt_text:
+                # caller supplied a transcript for their own clip: zero-shot conditions the
+                # LLM on it, which gives the closest match when the transcript is accurate.
+                if not prompt_text.endswith("<|endofprompt|>"):
+                    prompt_text = prompt_text + "<|endofprompt|>"
+                results = list(model.inference_zero_shot(text, prompt_text, prompt_wav, stream=False))
+                mode = "zero_shot"
+            else:
+                # no transcript: cross-lingual keeps the speaker identity but removes the
+                # reference text from the LLM, so it cannot be spoken before the real text.
+                results = list(model.inference_cross_lingual(text, prompt_wav, stream=False))
+                mode = "cross_lingual"
         finally:
             if cleanup:
                 try:
@@ -363,6 +419,7 @@ class EndpointHandler:
             "display": meta["display"],
             "voice": voice_id,
             "voice_source": source,
+            "mode": mode,
             "sampling_rate": sr,
             "duration_sec": duration,
             "peak": round(peak, 4),
