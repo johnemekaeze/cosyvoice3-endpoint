@@ -83,5 +83,7 @@ asserts on a missing marker. The full transcript is what makes it work.
 lower (its error message says 24000, but the check is against 16000).
 
 **Language switching is expensive.** One model is held at a time; switching downloads ~5GB
-and takes 1-2 minutes. The container has a 15GB memory ceiling, so the downloaded copy is
-deleted on unload -- without that, a few switches exhausted it and killed the replica.
+and takes 1-2 minutes. The container has a 15GB memory ceiling and several switches in
+quick succession can still exhaust it. Deleting the downloaded copy on unload was tried and
+reverted -- CosyVoice3 keeps reading those files after construction, so removing them broke
+the next load outright ("Cannot copy out of meta tensor"). A larger instance is the fix.

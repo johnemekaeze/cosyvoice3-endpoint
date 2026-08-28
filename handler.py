@@ -276,17 +276,13 @@ class EndpointHandler:
             del self._cache["model"]
         self._cache["model"] = None
         self._cache["name"] = None
-        # Every switch downloads ~5GB into the HF cache, which on this container is
-        # RAM-backed -- three switches was enough to hit "Memory limit exceeded (15.0G)"
-        # and kill the replica. The weights are already in the loaded model, so the
-        # downloaded copy is dead weight the moment loading finishes.
-        snap = self._cache.pop("snapshot", None)
-        if snap:
-            import shutil
-            for d in (snap, os.path.dirname(os.path.dirname(snap))):
-                if d and os.path.isdir(d) and "models--" in d:
-                    shutil.rmtree(d, ignore_errors=True)
-                    break
+        # Each switch downloads ~5GB into the HF cache and nothing reclaims it, which is how
+        # the replica kept hitting "Memory limit exceeded (15.0G)". An earlier attempt deleted
+        # the snapshot here and produced something worse -- "Cannot copy out of meta tensor"
+        # on the very next load, because CosyVoice3 still reads from those files after
+        # construction. So the cache is left alone; the memory ceiling is handled by keeping
+        # one model resident, and is being addressed at the instance level instead.
+        self._cache.pop("snapshot", None)
         gc.collect()
         gc.collect()
         if torch.cuda.is_available():
