@@ -64,6 +64,15 @@ def _startup() -> None:
         pass
 
 
+# The replica has died mid-session several times (readyReplica drops to 0 while the platform
+# still reports "running"), usually after rapid language switching. It recovers on its own,
+# so every not-ready response says so explicitly rather than leaving a caller to guess whether
+# the service is broken.
+RETRY_NOTE = ("The endpoint is starting up or was restarting. This is expected after idle "
+              "time or when switching language. Please TRY AGAIN in 1-2 minutes; a cold "
+              "start can take up to 8 minutes. Use a client timeout of at least 10 minutes.")
+
+
 @app.get("/health")
 def health():
     """HF probes this. Return 503 until the handler (and warmup model) is ready."""
@@ -71,12 +80,14 @@ def health():
         return {"status": "ok"}
     if _INIT_ERROR:
         # Still 503 so the platform retries; include detail for logs/UI.
-        return JSONResponse(status_code=503, content={"status": "error", "detail": _INIT_ERROR})
+        return JSONResponse(status_code=503, content={"status": "error", "detail": _INIT_ERROR,
+                                                      "retry": True, "note": RETRY_NOTE})
     try:
         _get_handler()
         return {"status": "ok"}
     except Exception as exc:
-        return JSONResponse(status_code=503, content={"status": "loading", "detail": str(exc)})
+        return JSONResponse(status_code=503, content={"status": "loading", "detail": str(exc),
+                                                      "retry": True, "note": RETRY_NOTE})
 
 
 @app.get("/")
@@ -122,13 +133,21 @@ def tts(req: TTSRequest) -> Dict[str, Any]:
     try:
         handler = _get_handler()
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Model not ready: {exc}") from exc
+        raise HTTPException(status_code=503,
+                            detail={"error": f"Model not ready: {exc}", "retry": True,
+                                    "note": RETRY_NOTE}) from exc
 
     payload = req.model_dump()
     try:
         return handler(payload)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        # a bad request (unknown language/voice, malformed upload) -- retrying will not help
+        raise HTTPException(status_code=400,
+                            detail={"error": str(exc), "retry": False}) from exc
     except Exception as exc:
         log.exception("generate failed")
-        raise HTTPException(status_code=500, detail=f"Generation failed: {exc}") from exc
+        raise HTTPException(status_code=500,
+                            detail={"error": f"Generation failed: {exc}", "retry": True,
+                                    "note": "Generation is stochastic and occasionally fails or "
+                                            "collapses. TRY AGAIN -- the same request usually "
+                                            "succeeds on a retry."}) from exc

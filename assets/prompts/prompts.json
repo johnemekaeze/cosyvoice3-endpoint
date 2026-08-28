@@ -1,98 +1,242 @@
 {
-  "hausa": {
-    "prompt_text": "Anya ku na da masaniyar cewa za ku iya tambaya ta da Hausa ko Turanci ko kuma Kanuri kai har ma da Shuwa?",
-    "prompt_wav": "hausa.wav"
-  },
-  "twi": {
-    "prompt_text": "Nson ahodoɔ nwɔtwe ma yɛn aduonum-nsia. Nson mmɔho nwɔtwe ma yɛnya aduonum-nsia.",
-    "prompt_wav": "twi.wav"
-  },
-  "igbo": {
-    "prompt_text": "Akara ya maka mgbututu n'ụbọchị Tuzde, mana azọpụtara ya ka ụlọ ikpe kpegharịrị ikpe na mberede.",
-    "prompt_wav": "igbo.wav"
-  },
-  "ewe": {
-    "prompt_text": "Amewo le ablɔ lɔm eye woŋlɔ ŋu ɖe atsiwo dzi hele ɖe asi. Wo le awu yibɔ me eye ɖewo do awu vovovowo. Woble ta dzi ɖewo ɖɔ kuku dzi eye ɖewo ɖɔ kuku yibɔ. Woɖo gaŋkui yibɔ. Woŋlɔ ŋu ɖe atiawo ɖewo dzi be adzŋga, korona ga wo ɖe? Eye ɖewo ƒo nu tso adzɔga.",
-    "prompt_wav": "ewe.wav"
-  },
-  "berber": {
-    "prompt_text": "netta, iḥulfa d lawan ad d-yaf win ara yuɣalen deg umkan-is",
-    "prompt_wav": "berber.wav"
-  },
-  "umbundu": {
-    "prompt_text": "Alimoso vyowiñgi wo roma ndavyakwatele okulya kwatunda ko América ale vo Ásia oco vende vo Europa tunde ovita vyalima vyapita.",
-    "prompt_wav": "umbundu.wav"
-  },
   "amharic": {
-    "prompt_text": "እንደ የሜትሪክ ስርዓት አጠቃቀም፣ ከእውነተኝነት ወደ ህዝባዊነት መቀየር፣ ብሔራዊነት እና አገሪቱ የህዝቡ እንጂ የአንድ ብቸኛ ገዢ አለመሆኗን ያሉ በርካታ ማህበራዊ እና ፖለቲካዊ ተፅእኖዎች አሉ፡፡",
-    "prompt_wav": "amharic.wav"
+    "male": {
+      "prompt_text": "በ1957 ሉክዘምበርግ አሁን የአውሮፓ ኅብረት ተብሎ የሚታወቀው ድርጅት መሥራች አባል ነበረ።",
+      "prompt_wav": "amharic__male.wav"
+    },
+    "female": {
+      "prompt_text": "ሴቶች፡ የትኛውም የሴቶች ተጓዦች ትክክለኛ የጋብቻ ሁኔታ ምንም ይሁን ምን ማግባታቸውን ቢናገሩ ይመከራል።",
+      "prompt_wav": "amharic__female.wav"
+    }
   },
   "arabic": {
-    "prompt_text": "ها تمام مشكورة يا خالتي مالي نفس ايش بلاش قبل شوي ايش زينت ما في شي بس صدعت عن اذنك بروح انام",
-    "prompt_wav": "arabic.wav"
+    "male": {
+      "prompt_text": "وَلَقَد آتَينا موسَى الكِتابَ لَعَلَّهُم يَهتَدونَ",
+      "prompt_wav": "arabic__male.wav"
+    },
+    "female": {
+      "prompt_text": "في الواقع، لا يوجد شيء واحد جيد يمكن تعلمه، فالتعلم يحدث في التجربة بين المُتعلم والمعرفة المُقدَمة.",
+      "prompt_wav": "arabic__female.wav"
+    }
   },
-  "fula": {
-    "prompt_text": "Ɗoo bo moggal himɓe on, ɓe ummi julurde nakusa ,ɓe ummi sallikeere yannde julde komoy ɗo fawni, ndaa o ɗo hippi salaya, haa dow hoore maako ɓe ɗo dilla.",
-    "prompt_wav": "fula.wav"
-  },
-  "luganda": {
-    "prompt_text": "Olaba n'ekitabo ekitukuvu kigamba nti ataakole n'okulya taalyenga.",
-    "prompt_wav": "luganda.wav"
-  },
-  "lingala": {
-    "prompt_text": "bana basili na kokufa ngai matoyi lokola ezosala te",
-    "prompt_wav": "lingala.wav"
-  },
-  "malagasy": {
-    "prompt_text": "Fiara fitateram-bahoaka izay miloko fotsy ambony, maitso apovoany ary mavo ambany ; ary ahitana olona maromaro ao anatiny.",
-    "prompt_wav": "malagasy.wav"
-  },
-  "sepedi": {
-    "prompt_text": "Ba sa leka go laodiša gore naa thulano yeo e be e le ye kgolo ga kae gomme Lefase le tlo amega ka tsela efe.",
-    "prompt_wav": "sepedi.wav"
+  "berber": {
+    "male": {
+      "prompt_text": "anda i tɛedda tiṭṭ-is ad tɛeddi ula nettat",
+      "prompt_wav": "berber__male.wav"
+    },
+    "female": {
+      "prompt_text": "mata lqhwa ad is km aisawbn kheta",
+      "prompt_wav": "berber__female.wav"
+    }
   },
   "chichewa": {
-    "prompt_text": "Ikuchenjeza Palibe amene angatsimikizire kuti chilichonse ku Iraq pakadali pano chidzayimitsa nkhondo zamipatuko, kuyimitsa kukula kwa ziwawa, kapena kusokonekera.",
-    "prompt_wav": "chichewa.wav"
+    "male": {
+      "prompt_text": "Makalata ambiri adasungidwa mu bokosi lamtali.",
+      "prompt_wav": "chichewa__male.wav"
+    },
+    "female": {
+      "prompt_text": "Kukhala ndi kudzipereka kudziko lina ndi njira yabwino yodziwira chikhalidwe china, kukumana ndi anthu atsopano, kuziphunzira imwe mwini, kukhala ndi malingaliro komanso ngakhale kupeza maluso atsopano.",
+      "prompt_wav": "chichewa__female.wav"
+    }
+  },
+  "ewe": {
+    "male": {
+      "prompt_text": "Nyɔnu eve aɖewo le tsitre hele nu kpɔm. wotsɔ nu yibɔ aɖe bla tae. Wo le tsitre ɖe atikutsetse gba aɖe dome abeble hã le afi ma.",
+      "prompt_wav": "ewe__male.wav"
+    },
+    "female": {
+      "prompt_text": "Ame aɖewo le seƒoƒo dom. Wodo asiwui wo. Wodze abe ƒome kpokploe ene. Aƒetɔ kple aƒenɔ kple wo vi etɔ̃ eye wodo abe avuvɔwu.",
+      "prompt_wav": "ewe__female.wav"
+    }
+  },
+  "fula": {
+    "male": {
+      "prompt_text": "Tema a heɓa kuje beverage mari sauqi je a wawata a waɗa hasutugo be mai to a warti daga ko vowi waɗugo kullum.",
+      "prompt_wav": "fula__male.wav"
+    },
+    "female": {
+      "prompt_text": "Tokish Diva sezen Aksu fiji be teno Alesandro safina be yimowo grik Haris Aleksio.",
+      "prompt_wav": "fula__female.wav"
+    }
+  },
+  "hausa": {
+    "male": {
+      "prompt_text": "Anya ku na da masaniyar cewa za ku iya tambaya ta da Hausa ko Turanci ko kuma Kanuri kai har ma da Shuwa?",
+      "prompt_wav": "hausa__male.wav"
+    },
+    "female": {
+      "prompt_text": "Babban alkalin ne ke shari'ar karar.",
+      "prompt_wav": "hausa__female.wav"
+    }
+  },
+  "igbo": {
+    "male": {
+      "prompt_text": "Onye egwuregwu nke taa a na-akwanyere ugwu Taa bụ Alex Ovechkin nke Washington Capitals.",
+      "prompt_wav": "igbo__male.wav"
+    },
+    "female": {
+      "prompt_text": "Ụzọ biorhythm ndị ọzọ gụnyere ịñụ oke ihe mmiri (karịsịa mmiri maọbụ tii, dayuretik a maara amaara) tupu arahụ ụra, na-amanye mmadụ ibili maka ịnyụ amịrị.",
+      "prompt_wav": "igbo__female.wav"
+    }
+  },
+  "lingala": {
+    "male": {
+      "prompt_text": "Banzete esalaka mopepe oyo bato bapemaka, pe ezwaka dioxide ya carbone oyo bato babimisaka (elingi koloba kofula).",
+      "prompt_wav": "lingala__male.wav"
+    },
+    "female": {
+      "prompt_text": "Moto ya maladi azalaki na Nigeria, esika bakangaki ndambu ya bato na maladi ya Ebola.",
+      "prompt_wav": "lingala__female.wav"
+    }
+  },
+  "luganda": {
+    "male": {
+      "prompt_text": "Ekibuga Vaticani kikozesa luyitale mu bufuzi bwayo ne mu kubunya obubaka",
+      "prompt_wav": "luganda__male.wav"
+    },
+    "female": {
+      "prompt_text": "Ebifo ebinene nga odda mu manbuka bibeerwamu kitono ate nga ebimu kyenkana nsiko omutebeerwa muntu.",
+      "prompt_wav": "luganda__female.wav"
+    }
+  },
+  "malagasy": {
+    "male": {
+      "prompt_text": "Vakana sy kavina, samy miloko mavo izy reto. Nahay nanamboatra tokoa ny mpanamboatra an'azy. Ny tahon'ilay vakana dia rojo volafotsy, ilay kavina kosa dia misy vy mitazona an'azy eo amin'ny sofiny.",
+      "prompt_wav": "malagasy__male.wav"
+    },
+    "female": {
+      "prompt_text": "Vehivavy mitsangana ambony lalana rary vato, lava volo, vaky tampona, mitsiky manao akanjo lava mavo lava tanana, misy sarim-boninkazo, mifatotra eo ambany tenda, manao kiraro avo, fotsy mangarahara.",
+      "prompt_wav": "malagasy__female.wav"
+    }
   },
   "oromo": {
-    "prompt_text": "Boombiin dabalataa sadii yeroo sa’aatii lamaa keessatti cinaa gamoo mootummaatti dhuka’e.",
-    "prompt_wav": "oromo.wav"
+    "male": {
+      "prompt_text": "Garuu akkuma amala isaa kutaa sagal qormaata namarraa waraabee kutaa kudhan gahe.",
+      "prompt_wav": "oromo__male.wav"
+    },
+    "female": {
+      "prompt_text": "Vidal kan umuriin isaa 28, garee Seviilaa irraa gara Baarsaatti ganna sadii dura dabalame.",
+      "prompt_wav": "oromo__female.wav"
+    }
   },
-  "somali": {
-    "prompt_text": "(Sky Sports) Ciyaaryahanka loo xiisay Liverpool, Nicolas Pépé, waxaa la doonayaa Inter Milan iyadoo la bixiyo sideetan malyan.",
-    "prompt_wav": "somali.wav"
+  "sepedi": {
+    "male": {
+      "prompt_text": "Ke tšeye sephetho sa go ngwadiša domeine gomme ke bule web page.",
+      "prompt_wav": "sepedi__male.wav"
+    },
+    "female": {
+      "prompt_text": "Batho ba ka no se naganele gore kgotlelelo le kwešišo le tšona di bohlokwa go baeti bao ba boang gae.",
+      "prompt_wav": "sepedi__female.wav"
+    }
   },
   "sesotho": {
-    "prompt_text": "Ena ke ketsahalo e kgolo moo balemi ba tla beng ba kopane mmoho le ho bona sesebediswa se setjha sa moraorao tjena hammoho le dikenngwamobung tsa tlhahiso.",
-    "prompt_wav": "sesotho.wav"
+    "male": {
+      "prompt_text": "Boitshepo ba kgwebo le botsetedi le bona bo ya ntlafala, mme hona ho kgothalletsa letsete le kgolo ya moruo.",
+      "prompt_wav": "sesotho__male.wav"
+    },
+    "female": {
+      "prompt_text": "Tabeng ya pele, re tlamehile ho tiisa hore re kgetha mofuta o tshepahalang, o seng o lekilwe wa peo e ilo jalwa.",
+      "prompt_wav": "sesotho__female.wav"
+    }
+  },
+  "somali": {
+    "male": {
+      "prompt_text": "Daawaynta kale waxaa ka mid ahaa dermabrasion, daawaynta sawir-qaadista, iyo dawooyin kale.",
+      "prompt_wav": "somali__male.wav"
+    },
+    "female": {
+      "prompt_text": "Badbaadada cuntadu waxay ku xidhan tahay wax soo saarka dalagga.",
+      "prompt_wav": "somali__female.wav"
+    }
   },
   "swahili": {
-    "prompt_text": "Kuna rundo la vitunguu vimevunwa. Vinaonekana vimekuwa vizuri na vipo tayari kwenda sokoni kuuzwa. Vitunguu vina rangi ya zambarau na vina ukubwa tofauti.",
-    "prompt_wav": "swahili.wav"
+    "male": {
+      "prompt_text": "Chupa nyingi ndogo za glasi zina poda ndani, zimefunikwa kwa vifuniko vya chuma vyenye rangi ya fedha, baadhi zimesimama huku nyingine zikiwa zimelala, zote zimejaa unga wa kahawia.",
+      "prompt_wav": "swahili__male.wav"
+    },
+    "female": {
+      "prompt_text": "Hapa n hospitalini, tunawaona watu wengi waliokuja ili kutibiwa, tunamuona mama mmoja aliyeshikilia mtoto wake na muuguzi anayehudumia mtoto huyo.",
+      "prompt_wav": "swahili__female.wav"
+    }
   },
   "tigrinya": {
-    "prompt_text": "ናይ በይነ መረብ እደጊት መድራኽ ተጠቀምቲ ክንሆን ለና እዮን።",
-    "prompt_wav": "tigrinya.wav"
-  },
-  "tswana": {
-    "prompt_text": "Go duela lekgetho go tlhokiwa ditlhankana tse dingwe morago ga ngwaga ya ditšhelete mme ga di kgonwe go dirisiwa go laola ditšhelete tsa go tsamaisa kgwebo ya gago.",
-    "prompt_wav": "tswana.wav"
+    "male": {
+      "prompt_text": "ባፂሑ ናብ ምዕፃድ ዝኣኸለ እኽሊ ይርአየና ኣሎ፡፡ እዚ እኽሊ ስርናይ እዩ፡፡ ኣብ እዋን ቀውዒ እኽልታት እናተዓፀዱ ከምቲ እታ ጓለ ኣነስተይቲ ትገብሮ ዘላ ናብ ሓደ ይእከቡ፡፡",
+      "prompt_wav": "tigrinya__male.wav"
+    },
+    "female": {
+      "prompt_text": "ናይ ኢደ ጥበባት ስራሕቲ ካብ ዝባሃሉ ሓደ ስፈ እዩ፡፡ ኣብዚ ብክሪ ናይ ፃዕዳ ዳበርያ ዝተሰፈየ ሰፈኢ ርግሀ ይረአ ኣሎ፡፡ ከምዚ ዓይነት ሰፍኢ ዶ ኣለኩም?",
+      "prompt_wav": "tigrinya__female.wav"
+    }
   },
   "tsonga": {
-    "prompt_text": "Xibukwana xa nhlayiseko wa rihanyo ra swiharhi xa vahlayisi va timbuti.",
-    "prompt_wav": "tsonga.wav"
+    "male": {
+      "prompt_text": "Ku onha ka rihanyo ra misava loko ma tirhisiwa ngopfu manyoro ya tikhemikhali ma endla leswaku misava yi lahlekeriwa hi swakudya swa ntumbuluko naswona ma hunguta switsotswana misava yi fanele ku va na tinyoka na switsotswana leswi pfunaka ku endla ma kula kambe manyoro ma swi dlaya.",
+      "prompt_wav": "tsonga__male.wav"
+    },
+    "female": {
+      "prompt_text": "Na Mamelodi Sundowns, TP Mazembe na AS Vita, Orlando Pirates hi yona ntsena xipano xa Southern Hemisphere lexi nga hlula eka African Champions League.",
+      "prompt_wav": "tsonga__female.wav"
+    }
+  },
+  "tswana": {
+    "male": {
+      "prompt_text": "Re bone senokwane se se ratang go tlhaba batho ka thipa.",
+      "prompt_wav": "tswana__male.wav"
+    },
+    "female": {
+      "prompt_text": "Sebaka se dikepe di se emang se fokotsegile ka mokgwa o o gakgamatsang thata.",
+      "prompt_wav": "tswana__female.wav"
+    }
+  },
+  "twi": {
+    "male": {
+      "prompt_text": "Wode w anim hintaw wɔn a ɔbɔ hu ɛ wugye wɔn home a owuwu na wɔsan kɔ mfutuma mu",
+      "prompt_wav": "twi__male.wav"
+    },
+    "female": {
+      "prompt_text": "Afei Naomi ka kyerɛɛ ne nsenom yi se Monsan nkɔ mo nanom fi nd Awurade nd ne mo nni no yiye sɛnea mo ne awufo ne me dii no yiye no",
+      "prompt_wav": "twi__female.wav"
+    }
+  },
+  "umbundu": {
+    "male": {
+      "prompt_text": "Onatale lyakwata etendelo litava 88% k’olopontu k’epuluvi lyombunje, okukwata 76 k’olopontu k’epuluvi lyatete.",
+      "prompt_wav": "umbundu__male.wav"
+    },
+    "female": {
+      "prompt_text": "Ocinyi citekãva ongusu imwe okuti kayimõleha calwa, likasi olonjanja vyalwa okuñgwãla olwali.",
+      "prompt_wav": "umbundu__female.wav"
+    }
   },
   "venda": {
-    "prompt_text": "Wa u thoma ndi mulayotibe wa u khwinisa mulayo wa khwiniso ya mulayo wa zwa vhutshinyi vhutshinyi ha zwa vhudzekani na mafhungo a elanaho nazwo.",
-    "prompt_wav": "venda.wav"
+    "male": {
+      "prompt_text": "Hezwi zwo ṱoḓa nḓila ntswa dzi bveledzaho dza u shuma u itela u thoma u shumisa mbekanya mushumo nga luvhilo lu songo ḓoweleaho na tshikalo tshi mangadzaho.",
+      "prompt_wav": "venda__male.wav"
+    },
+    "female": {
+      "prompt_text": "Senthara nnzhi dza mveledziso ya nyaluwo ya vhana ya vhuhanani, ECD, dzo thuswa u bvela phanḓa na u shuma na u vula hafhu.",
+      "prompt_wav": "venda__female.wav"
+    }
   },
   "xhosa": {
-    "prompt_text": "Incede abantu abatsha abafana noWayne Mansfield oneminyaka engama-33 ubudala.",
-    "prompt_wav": "xhosa.wav"
+    "male": {
+      "prompt_text": "Kwindawo esihlala kuyo abantu abaninzi abanayo imisebenzi yokuzonwabisa ende sichitha ixesha lethu sizama ukuphila ngoko ke asinalo ixesha lemisebenzi yokuzonwabisa.",
+      "prompt_wav": "xhosa__male.wav"
+    },
+    "female": {
+      "prompt_text": "Irhafu 1- Izifundo ezinikelwe ngo-2015 ngenkxaso yeMaize Trust.",
+      "prompt_wav": "xhosa__female.wav"
+    }
   },
   "zulu": {
-    "prompt_text": "Kuloluhlobo lwesithuthi olunamandla wonke umuntu ngandlelathile uxhumene, futhi usekela uhlelo lokuthutha olusekelwe ezimotweni ezincane.",
-    "prompt_wav": "zulu.wav"
+    "male": {
+      "prompt_text": "Uliggins walandela izinyathelo zikayise futhi wasebenza emkhakheni wezokwelapha.",
+      "prompt_wav": "zulu__male.wav"
+    },
+    "female": {
+      "prompt_text": "Ungafisa nokuhlola izeluleko zohulumeni ngaphandle kowakho, kodwa izeluleko ziklanyelwe izakhamuzi zawo.",
+      "prompt_wav": "zulu__female.wav"
+    }
   }
 }
