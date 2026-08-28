@@ -60,3 +60,28 @@ Response: `{"language", "display", "sampling_rate", "duration_sec", "audio_base6
   language downloads ~5GB of weights and takes ~2.5 minutes; later calls to it are ~11s.
 - GHCR packages default to private. Make the package public via the web UI
   (Package settings -> Danger Zone -> Change visibility) or the endpoint cannot pull it.
+
+## Behaviour worth knowing
+
+**Generation is stochastic.** CosyVoice3 occasionally collapses to a fraction of a second
+regardless of the input -- the same request measured 5.12s on one run and 0.08s on the next,
+and an identical reference clip scored 0/3 in one sweep and 2/3 in another. The endpoint
+re-rolls a collapsed generation up to `COSYVOICE_GEN_ATTEMPTS` (default 4) times, and reports
+how many it took in `attempts`. If it still fails, `status.audio_generated` and `ok` are
+false, so a caller can tell rather than shipping a broken clip.
+
+**Very short input collapses more often.** CosyVoice warns when the requested text is under
+half the length of the reference transcript, and that is the regime where collapse is most
+frequent. A full sentence behaves far better than one or two words.
+
+**The reference transcript is required and cannot be shortened.** Measured directly:
+supplying only the `<|endofprompt|>` marker, or a truncated prompt, collapses generation at
+every target length -- and `inference_cross_lingual` cannot run at all, because CosyVoice3
+asserts on a missing marker. The full transcript is what makes it work.
+
+**Reference audio must be at least 16 kHz.** CosyVoice3's `load_wav` asserts on anything
+lower (its error message says 24000, but the check is against 16000).
+
+**Language switching is expensive.** One model is held at a time; switching downloads ~5GB
+and takes 1-2 minutes. The container has a 15GB memory ceiling, so the downloaded copy is
+deleted on unload -- without that, a few switches exhausted it and killed the replica.

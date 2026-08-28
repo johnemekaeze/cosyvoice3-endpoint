@@ -148,6 +148,8 @@ ALIASES: Dict[str, str] = {
 
 DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "hausa").strip()
 DEFAULT_VOICE = os.environ.get("COSYVOICE_DEFAULT_VOICE", "female").strip().lower()
+# how many times to re-roll a collapsed generation before giving up
+GEN_ATTEMPTS = int(os.environ.get("COSYVOICE_GEN_ATTEMPTS", "4"))
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROMPT_DIR = os.path.join(APP_DIR, "assets", "prompts")
@@ -408,27 +410,45 @@ class EndpointHandler:
         if not prompt_text.endswith("<|endofprompt|>"):
             prompt_text = prompt_text + "<|endofprompt|>"
         mode = "zero_shot"
+        sr = int(model.sample_rate)
+        # Generation is stochastic and collapses to a fraction of a second every so often --
+        # measured on a good reference clip, the same request gave 5.12s on one run and 0.08s
+        # on the next. It is not the clip: the identical tswana file scored 0/3 in one sweep
+        # and 2/3 in another. So retry a collapse here rather than handing the caller a
+        # broken clip and asking them to notice.
+        expected_min = max(0.5, min(1.2, 0.12 * len(text.split())))
+        wav, attempts, last = None, 0, None
         try:
-            results = list(model.inference_zero_shot(text, prompt_text, prompt_wav, stream=False))
+            for attempts in range(1, GEN_ATTEMPTS + 1):
+                try:
+                    results = list(model.inference_zero_shot(text, prompt_text, prompt_wav, stream=False))
+                except Exception as exc:   # transient CUDA/shape faults also retry
+                    last = exc
+                    log.warning("attempt %d failed for %s: %s", attempts, key, exc)
+                    continue
+                if not results:
+                    last = RuntimeError("no audio returned")
+                    continue
+                cand = results[0]["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
+                dur = len(cand) / sr
+                pk = float(np.max(np.abs(cand))) if cand.size else 0.0
+                if wav is None or dur > len(wav) / sr:
+                    wav = cand
+                if dur >= expected_min and pk > 0.02:
+                    break
+                log.warning("collapsed output %.2fs for %s (attempt %d), retrying", dur, key, attempts)
         finally:
             if cleanup:
                 try:
                     os.remove(cleanup)
                 except OSError:
                     pass
-        if not results:
-            raise RuntimeError("synthesis produced no audio")
+        if wav is None:
+            raise RuntimeError(f"synthesis failed after {GEN_ATTEMPTS} attempts: {last}")
         voice_cloned = True
 
-        wav = results[0]["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
-        sr = int(model.sample_rate)
         duration = float(len(wav) / sr)
         peak = float(np.max(np.abs(wav))) if wav.size else 0.0
-
-        # stage 3 -- the audio is real rather than silence or a collapsed generation.
-        # CosyVoice3 occasionally returns a fraction of a second regardless of input length,
-        # so check against the text rather than against zero.
-        expected_min = min(0.9, 0.06 * max(len(text.split()), 1))
         audio_ok = bool(duration >= expected_min and peak > 0.02)
 
         buf = io.BytesIO()
@@ -441,6 +461,7 @@ class EndpointHandler:
             "voice": voice_id,
             "voice_source": source,
             "mode": mode,
+            "attempts": attempts,
             "sampling_rate": sr,
             "duration_sec": duration,
             "peak": round(peak, 4),
