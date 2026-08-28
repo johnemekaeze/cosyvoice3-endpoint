@@ -15,7 +15,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     HF_HUB_ENABLE_HF_TRANSFER=1 \
     PORT=8080 \
-    MODEL_DIR=/repository
+    MODEL_DIR=/repository \
+    HF_HOME=/hfcache \
+    HUGGINGFACE_HUB_CACHE=/hfcache/hub
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \

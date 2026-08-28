@@ -241,6 +241,15 @@ def register_voice(audio_b64: str, prompt_text: Optional[str] = None,
 class EndpointHandler:
     """Loaded once per replica by HF's Inference Endpoint runtime."""
 
+    def _preset_transcript(self, key: str, voice_id: str) -> str:
+        """Reference transcript for a preset, needed so the <|endofprompt|> marker has
+        something to delimit. An uploaded clip without a transcript falls back to this."""
+        b = self._prompts.get(key) or {}
+        if "prompt_text" in b:
+            return b["prompt_text"]
+        e = b.get(voice_id) or next((v for v in b.values() if isinstance(v, dict)), {})
+        return e.get("prompt_text", "")
+
     def __init__(self, model_dir: str = "") -> None:
         token = _hf_token()
         if token:
@@ -265,9 +274,22 @@ class EndpointHandler:
             del self._cache["model"]
         self._cache["model"] = None
         self._cache["name"] = None
+        # Every switch downloads ~5GB into the HF cache, which on this container is
+        # RAM-backed -- three switches was enough to hit "Memory limit exceeded (15.0G)"
+        # and kill the replica. The weights are already in the loaded model, so the
+        # downloaded copy is dead weight the moment loading finishes.
+        snap = self._cache.pop("snapshot", None)
+        if snap:
+            import shutil
+            for d in (snap, os.path.dirname(os.path.dirname(snap))):
+                if d and os.path.isdir(d) and "models--" in d:
+                    shutil.rmtree(d, ignore_errors=True)
+                    break
+        gc.collect()
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
 
     def _get_model(self, language: str):
         key = _resolve_language(language)
@@ -293,6 +315,7 @@ class EndpointHandler:
             raise RuntimeError(f"could not load the {key} model: {exc}") from exc
         self._cache["name"] = key
         self._cache["model"] = model
+        self._cache["snapshot"] = local_dir
         log.info("loaded %s", key)
         return model, MODELS[key]
 
@@ -358,9 +381,7 @@ class EndpointHandler:
             else:
                 pick = DEFAULT_VOICE if DEFAULT_VOICE in bundled else available[0]
                 entry, vid = bundled[pick], pick
-        # Presets deliberately pass None: the reference must never be spoken, and the
-        # bundled transcripts are corpus metadata we cannot guarantee match the audio.
-        return None, os.path.join(PROMPT_DIR, entry["prompt_wav"]), None, "preset", vid
+        return entry["prompt_text"], os.path.join(PROMPT_DIR, entry["prompt_wav"]), None, "preset", vid
 
 
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -375,20 +396,20 @@ class EndpointHandler:
         prompt_text, prompt_wav, cleanup, source, voice_id = self._prompt_for(key, data)
         voice_loaded = True
 
-        # stage 2 -- clone the voice and synthesize ONLY the requested text
+        # stage 2 -- clone the voice and synthesize ONLY the requested text.
+        #
+        # CosyVoice3 requires the <|endofprompt|> marker: inference_cross_lingual omits
+        # prompt_text entirely and asserts out ("<|endofprompt|> not detected"), so it is
+        # not usable here. The marker is precisely what tells the LLM where the reference
+        # ends, so supplying it correctly is what keeps the reference from being spoken.
+        if not prompt_text:
+            prompt_text = self._preset_transcript(key, voice_id)
+        prompt_text = prompt_text.strip()
+        if not prompt_text.endswith("<|endofprompt|>"):
+            prompt_text = prompt_text + "<|endofprompt|>"
+        mode = "zero_shot"
         try:
-            if prompt_text:
-                # caller supplied a transcript for their own clip: zero-shot conditions the
-                # LLM on it, which gives the closest match when the transcript is accurate.
-                if not prompt_text.endswith("<|endofprompt|>"):
-                    prompt_text = prompt_text + "<|endofprompt|>"
-                results = list(model.inference_zero_shot(text, prompt_text, prompt_wav, stream=False))
-                mode = "zero_shot"
-            else:
-                # no transcript: cross-lingual keeps the speaker identity but removes the
-                # reference text from the LLM, so it cannot be spoken before the real text.
-                results = list(model.inference_cross_lingual(text, prompt_wav, stream=False))
-                mode = "cross_lingual"
+            results = list(model.inference_zero_shot(text, prompt_text, prompt_wav, stream=False))
         finally:
             if cleanup:
                 try:
