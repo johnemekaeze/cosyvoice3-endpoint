@@ -444,7 +444,15 @@ class EndpointHandler:
                 expected = len(text) / (len(raw_prompt_text) / ref_dur)
         except Exception:
             expected = None
-        leak_max = (expected * 1.8 + 1.5) if expected else None
+        # A spoken reference adds roughly ONE reference-length of audio, so the bound is set
+        # from the reference's duration rather than as a multiple of the expected length.
+        # The first live run proved the old bound (expected*1.8+1.5) useless: chichewa/male
+        # leaked at 11.16s against a 6.4s expectation and sailed under the 13.0s ceiling on
+        # attempt 1. Slack is capped so a long reference does not buy an unlimited allowance.
+        leak_max = None
+        if expected:
+            slack = min(0.5 * ref_dur, max(1.5, 0.6 * expected))
+            leak_max = expected + slack
 
         wav, attempts, last, best = None, 0, None, None
         try:
