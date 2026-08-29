@@ -150,6 +150,8 @@ DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "hausa").strip()
 DEFAULT_VOICE = os.environ.get("COSYVOICE_DEFAULT_VOICE", "female").strip().lower()
 # how many times to re-roll a collapsed generation before giving up
 GEN_ATTEMPTS = int(os.environ.get("COSYVOICE_GEN_ATTEMPTS", "4"))
+# The marker terminates an instruction preamble; the reference transcript follows it.
+EOP_PREAMBLE = "You are a helpful assistant.<|endofprompt|>"
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROMPT_DIR = os.path.join(APP_DIR, "assets", "prompts")
@@ -396,15 +398,25 @@ class EndpointHandler:
 
         # stage 2 -- clone the voice and synthesize ONLY the requested text.
         #
-        # CosyVoice3 requires the <|endofprompt|> marker: inference_cross_lingual omits
-        # prompt_text entirely and asserts out ("<|endofprompt|> not detected"), so it is
-        # not usable here. The marker is precisely what tells the LLM where the reference
-        # ends, so supplying it correctly is what keeps the reference from being spoken.
+        # <|endofprompt|> ends an INSTRUCTION PREAMBLE; the reference transcript belongs
+        # AFTER it. Every released CosyVoice3 example passes prompt_text in that shape:
+        #
+        #     inference_zero_shot(tts_text, "You are a helpful assistant.<|endofprompt|>"
+        #                                   + reference_transcript, prompt_wav)
+        #
+        # llm.py concatenates the two halves into one sequence (text = cat[prompt_text, text])
+        # and the marker is the only thing telling the model which span the reference audio
+        # already covers. Appending it instead -- transcript first, marker last -- leaves the
+        # transcript sitting in the instruction slot with nothing after the marker matching the
+        # audio, so the model speaks the transcript too. Measured over all 48 deployed voices,
+        # appending leaked on 11 of them (worst: chichewa/male, 2.7 reference-lengths of extra
+        # audio); this ordering leaks on 4. Both forms satisfy the EOP assert, which is why the
+        # bug was silent rather than an error.
         if not prompt_text:
             prompt_text = self._preset_transcript(key, voice_id)
-        prompt_text = prompt_text.strip()
-        if not prompt_text.endswith("<|endofprompt|>"):
-            prompt_text = prompt_text + "<|endofprompt|>"
+        # normalise whatever the caller sent, so a legacy trailing marker is repositioned
+        raw_prompt_text = prompt_text.replace("<|endofprompt|>", "").strip()
+        prompt_text = EOP_PREAMBLE + raw_prompt_text
         mode = "zero_shot"
         sr = int(model.sample_rate)
         # Generation is stochastic and collapses to a fraction of a second every so often --
@@ -413,7 +425,20 @@ class EndpointHandler:
         # and 2/3 in another. So retry a collapse here rather than handing the caller a
         # broken clip and asking them to notice.
         expected_min = max(0.5, min(1.2, 0.12 * len(text.split())))
-        wav, attempts, last = None, 0, None
+        # Upper bound for the same reason. A leaked reference shows up as audio far longer
+        # than the requested text can account for, so estimate the length from THIS voice's
+        # own speaking rate -- its transcript's characters over its reference's seconds --
+        # rather than a global constant, since these languages run from 5.5 to 15.4 chars/sec.
+        expected = None
+        try:
+            ref_dur = float(sf.info(prompt_wav).duration)
+            if ref_dur > 0 and raw_prompt_text:
+                expected = len(text) / (len(raw_prompt_text) / ref_dur)
+        except Exception:
+            expected = None
+        leak_max = (expected * 1.8 + 1.5) if expected else None
+
+        wav, attempts, last, best = None, 0, None, None
         try:
             for attempts in range(1, GEN_ATTEMPTS + 1):
                 try:
@@ -428,11 +453,19 @@ class EndpointHandler:
                 cand = results[0]["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
                 dur = len(cand) / sr
                 pk = float(np.max(np.abs(cand))) if cand.size else 0.0
-                if wav is None or dur > len(wav) / sr:
-                    wav = cand
-                if dur >= expected_min and pk > 0.02:
+                ok = dur >= expected_min and pk > 0.02 and (leak_max is None or dur <= leak_max)
+                # Keep the take closest to the expected length, NOT the longest one -- a leak
+                # is extra length, so preferring the longest actively selected the bad take.
+                rank = (0 if ok else 1, abs(dur - expected) if expected else -dur)
+                if best is None or rank < best[0]:
+                    best, wav = rank, cand
+                if ok:
                     break
-                log.warning("collapsed output %.2fs for %s (attempt %d), retrying", dur, key, attempts)
+                if leak_max is not None and dur > leak_max:
+                    log.warning("leaked reference: %.2fs > %.2fs for %s (attempt %d), retrying",
+                                dur, leak_max, key, attempts)
+                else:
+                    log.warning("collapsed output %.2fs for %s (attempt %d), retrying", dur, key, attempts)
         finally:
             if cleanup:
                 try:
@@ -445,7 +478,8 @@ class EndpointHandler:
 
         duration = float(len(wav) / sr)
         peak = float(np.max(np.abs(wav))) if wav.size else 0.0
-        audio_ok = bool(duration >= expected_min and peak > 0.02)
+        audio_ok = bool(duration >= expected_min and peak > 0.02
+                        and (leak_max is None or duration <= leak_max))
 
         buf = io.BytesIO()
         sf.write(buf, wav, sr, format="WAV")

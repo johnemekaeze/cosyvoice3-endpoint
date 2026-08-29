@@ -76,8 +76,43 @@ frequent. A full sentence behaves far better than one or two words.
 
 **The reference transcript is required and cannot be shortened.** Measured directly:
 supplying only the `<|endofprompt|>` marker, or a truncated prompt, collapses generation at
-every target length -- and `inference_cross_lingual` cannot run at all, because CosyVoice3
-asserts on a missing marker. The full transcript is what makes it work.
+every target length. The full transcript is what makes it work.
+
+**Where `<|endofprompt|>` goes decides whether the reference is spoken aloud.** The marker
+ends an *instruction preamble*; the reference transcript belongs after it, exactly as in
+CosyVoice3's own examples:
+
+```python
+inference_zero_shot(tts_text,
+                    "You are a helpful assistant.<|endofprompt|>" + reference_transcript,
+                    prompt_wav)
+```
+
+`llm.py` concatenates the two halves into a single sequence (`text = cat[prompt_text, text]`),
+so the marker is the only thing telling the model which span the reference audio already
+covers. This endpoint previously *appended* the marker -- transcript first, marker last --
+which left the transcript in the instruction slot with nothing after the marker matching the
+audio, and the model spoke the transcript before the requested text. Both forms satisfy the
+`EOP_TOKEN_ID` assert, so the bug was silent rather than an error.
+
+Measured over all 48 deployed voices, with expected length calibrated from each voice's own
+speaking rate: appending leaked on **11 of 48** (worst, chichewa/male: 2.7 reference-lengths
+of unexplained audio); the correct ordering leaks on **4 of 48**. No property of the
+reference clip predicted it -- duration, characters per second, target/prompt ratio and
+punctuation all failed to separate leaking voices from clean ones. The cause is the
+fine-tuning data: its `text` column holds bare transcripts with no marker and no preamble,
+so the model was taught to speak every text token it is handed.
+
+The endpoint now also rejects a leaked take and re-rolls it, using an upper duration bound
+derived from the voice's own speaking rate. Note the earlier retry kept the *longest*
+candidate, which actively selected leaked takes; it now keeps the one closest to the
+expected length.
+
+**`inference_cross_lingual` does work**, contrary to an earlier note here -- the marker must
+travel on the `tts_text` argument instead, which is what the released examples do:
+`inference_cross_lingual("You are a helpful assistant.<|endofprompt|>" + text, prompt_wav)`.
+It passes no transcript at all, so nothing can leak; it scored 4 of 48 as well, with no
+collapses but one worse outlier. Zero-shot with the corrected ordering is what ships.
 
 **Reference audio must be at least 16 kHz.** CosyVoice3's `load_wav` asserts on anything
 lower (its error message says 24000, but the check is against 16000).
