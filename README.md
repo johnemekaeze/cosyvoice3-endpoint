@@ -117,8 +117,19 @@ collapses but one worse outlier. Zero-shot with the corrected ordering is what s
 **Reference audio must be at least 16 kHz.** CosyVoice3's `load_wav` asserts on anything
 lower (its error message says 24000, but the check is against 16000).
 
-**Language switching is expensive.** One model is held at a time; switching downloads ~5GB
-and takes 1-2 minutes. The container has a 15GB memory ceiling and several switches in
-quick succession can still exhaust it. Deleting the downloaded copy on unload was tried and
+**Language switching is expensive, and enough of it will kill the replica.** One model is
+held at a time; switching downloads ~5GB and takes 1-2 minutes. The container has a 15GB
+memory ceiling, and this is not theoretical: a live run switching chichewa -> fula -> lingala
+took the replica down on the third load, returning 502 and then 503 to everything that
+followed until it restarted itself (about a minute).
+
+We are staying on the T4 (15GB, $0.50/hr) rather than the A10G (30GB, $1.00/hr), so
+**callers must expect this**:
+
+- Treat 502 and 503 as retryable. Wait ~60s and try again; the replica restarts on its own.
+- Prefer batching work by language. Synthesizing ten hausa clips costs one model load;
+  alternating hausa/igbo/hausa costs three and risks the ceiling.
+- `GET /health` returning 503 with `retry: true` means it is still warming, not broken. Deleting the downloaded copy on unload was tried and
 reverted -- CosyVoice3 keeps reading those files after construction, so removing them broke
-the next load outright ("Cannot copy out of meta tensor"). A larger instance is the fix.
+the next load outright ("Cannot copy out of meta tensor"). A larger instance remains the real
+fix whenever the cost is worth it.
