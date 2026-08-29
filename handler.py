@@ -492,7 +492,16 @@ class EndpointHandler:
                 if not results:
                     last = RuntimeError("no audio returned")
                     continue
-                cand = results[0]["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
+                # inference_zero_shot SPLITS long input (split_paragraph, ~80 tokens a chunk)
+                # and YIELDS ONE SEGMENT PER CHUNK. Taking results[0] kept only the first and
+                # discarded the rest, which is why anything longer than a couple of sentences
+                # stopped dead around 20-30 seconds: the model had synthesized the whole text,
+                # we were throwing most of it away. Join every segment back together.
+                cand = np.concatenate(
+                    [r["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
+                     for r in results])
+                if len(results) > 1:
+                    log.info("joined %d segments for %s (%.1fs)", len(results), key, len(cand) / sr)
                 dur = len(cand) / sr
                 pk = float(np.max(np.abs(cand))) if cand.size else 0.0
                 ok = dur >= expected_min and pk > 0.02 and (leak_max is None or dur <= leak_max)
