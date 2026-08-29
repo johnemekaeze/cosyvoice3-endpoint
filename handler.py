@@ -499,7 +499,7 @@ class EndpointHandler:
                 # Keep the take closest to the expected length, NOT the longest one -- a leak
                 # is extra length, so preferring the longest actively selected the bad take.
                 rank = (0 if ok else 1, abs(dur - expected) if expected else -dur)
-                if best is None or rank < best[0]:
+                if best is None or rank < best:
                     best, wav = rank, cand
                 if ok:
                     break
