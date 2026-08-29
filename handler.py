@@ -412,12 +412,20 @@ class EndpointHandler:
         # appending leaked on 11 of them (worst: chichewa/male, 2.7 reference-lengths of extra
         # audio); this ordering leaks on 4. Both forms satisfy the EOP assert, which is why the
         # bug was silent rather than an error.
-        if not prompt_text:
-            prompt_text = self._preset_transcript(key, voice_id)
-        # normalise whatever the caller sent, so a legacy trailing marker is repositioned
-        raw_prompt_text = prompt_text.replace("<|endofprompt|>", "").strip()
-        prompt_text = EOP_PREAMBLE + raw_prompt_text
-        mode = "zero_shot"
+        # With no transcript we trust, run CROSS-LINGUAL rather than borrowing the preset's
+        # transcript for the language. That substitution was actively harmful: the borrowed
+        # text does not describe the uploaded audio, and a transcript that mismatches its clip
+        # is what collapsed twi to 0.04s. Cross-lingual carries the marker on tts_text instead,
+        # exactly as the released examples do, and passes no reference text at all -- so the
+        # reference cannot be spoken. It keeps speaker identity through the flow model and the
+        # speaker embedding. (An earlier note claimed cross-lingual could not run; that was
+        # wrong, and came from calling it without the marker.)
+        raw_prompt_text = (prompt_text or "").replace("<|endofprompt|>", "").strip()
+        if raw_prompt_text:
+            prompt_text = EOP_PREAMBLE + raw_prompt_text
+            mode = "zero_shot"
+        else:
+            prompt_text, mode = None, "cross_lingual"
         sr = int(model.sample_rate)
         # Generation is stochastic and collapses to a fraction of a second every so often --
         # measured on a good reference clip, the same request gave 5.12s on one run and 0.08s
@@ -442,7 +450,12 @@ class EndpointHandler:
         try:
             for attempts in range(1, GEN_ATTEMPTS + 1):
                 try:
-                    results = list(model.inference_zero_shot(text, prompt_text, prompt_wav, stream=False))
+                    if mode == "zero_shot":
+                        results = list(model.inference_zero_shot(
+                            text, prompt_text, prompt_wav, stream=False))
+                    else:
+                        results = list(model.inference_cross_lingual(
+                            EOP_PREAMBLE + text, prompt_wav, stream=False))
                 except Exception as exc:   # transient CUDA/shape faults also retry
                     last = exc
                     log.warning("attempt %d failed for %s: %s", attempts, key, exc)
