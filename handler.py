@@ -308,11 +308,32 @@ class EndpointHandler:
             log.info("loading %s on %s", key, self._device)
             model = CosyVoice3(local_dir, fp16=False)
         except Exception as exc:
-            # a failed switch must not leave a half-loaded model behind, and must not take
-            # the replica down -- the caller gets a retryable error instead
+            # A container killed mid-download (the 15GB OOM did this repeatedly) leaves a
+            # snapshot holding config but not weights. HF_HOME resolves to /repository/cache,
+            # which OUTLIVES the container, so that wreckage is inherited by every later
+            # replica: transformers builds the model on the meta device, finds no tensors to
+            # copy in, and dies with "Cannot copy out of meta tensor" -- for EVERY language,
+            # including the one warmed at startup. Restarting cannot clear it. So re-fetch
+            # once, ignoring the cache, before giving up.
+            #
+            # This is not the reverted snapshot-deletion change: that deleted files while the
+            # loaded model was still reading them, which broke the next load outright. Here
+            # nothing is deleted, and it only runs on a load that has already failed.
+            log.warning("load of %s failed (%s); re-downloading without the cache", key, exc)
             self._unload()
-            log.exception("failed to load %s", key)
-            raise RuntimeError(f"could not load the {key} model: {exc}") from exc
+            try:
+                local_dir = snapshot_download(repo_id=repo, token=_hf_token(),
+                                              ignore_patterns=_SNAPSHOT_IGNORE,
+                                              force_download=True)
+                log.info("re-loading %s on %s after refetch", key, self._device)
+                model = CosyVoice3(local_dir, fp16=False)
+            except Exception as exc2:
+                # a failed switch must not leave a half-loaded model behind, and must not
+                # take the replica down -- the caller gets a retryable error instead
+                self._unload()
+                log.exception("failed to load %s even after refetch", key)
+                raise RuntimeError(
+                    f"could not load the {key} model after re-download: {exc2}") from exc2
         self._cache["name"] = key
         self._cache["model"] = model
         self._cache["snapshot"] = local_dir
