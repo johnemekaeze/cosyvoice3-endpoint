@@ -11,7 +11,7 @@ import os
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 logging.basicConfig(level=logging.INFO)
@@ -183,6 +183,36 @@ def list_voices() -> Dict[str, Any]:
                         "duration_sec": v.get("duration_sec"),
                         "has_transcript": bool(v.get("prompt_text"))}
                        for k, v in VOICE_STORE.items()]}
+
+
+@app.post("/stream")
+def tts_stream(req: TTSRequest):
+    """Same request body as POST /, but audio arrives as it is generated.
+
+    Returns chunked audio/wav: a streaming RIFF header, then 16-bit PCM. First audio lands
+    in roughly 1-2s regardless of how long the passage is, against 152s for a four-minute
+    request on the batch route.
+
+    Errors can only be reported before the first byte. Once audio is flowing the status
+    fields POST / returns have nowhere to go, so a caller that needs `ok` and `status` should
+    use POST / instead.
+    """
+    try:
+        handler = _get_handler()
+    except Exception as exc:
+        raise HTTPException(status_code=503,
+                            detail={"error": f"Model not ready: {exc}", "retry": True,
+                                    "note": RETRY_NOTE}) from exc
+    try:
+        gen = handler.stream(req.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"error": str(exc), "retry": False}) from exc
+    except Exception as exc:
+        log.exception("stream setup failed")
+        raise HTTPException(status_code=500,
+                            detail={"error": f"Generation failed: {exc}", "retry": True}) from exc
+    return StreamingResponse(gen, media_type="audio/wav",
+                             headers={"X-Accel-Buffering": "no", "Cache-Control": "no-store"})
 
 
 @app.post("/")

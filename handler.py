@@ -224,6 +224,21 @@ def _decode_voice(audio_b64: str, prompt_text: Optional[str] = None) -> str:
     return tmp.name
 
 
+def _wav_stream_header(sample_rate: int, channels: int = 1, bits: int = 16) -> bytes:
+    """A RIFF header for audio whose length is not yet known.
+
+    The size fields are set to their maximum; players read until the connection closes.
+    Writing a real length is impossible here -- that is the whole point of streaming.
+    """
+    import struct
+    byte_rate = sample_rate * channels * bits // 8
+    block_align = channels * bits // 8
+    return (b"RIFF" + struct.pack("<I", 0xFFFFFFFF) + b"WAVE"
+            + b"fmt " + struct.pack("<IHHIIHH", 16, 1, channels, sample_rate,
+                                    byte_rate, block_align, bits)
+            + b"data" + struct.pack("<I", 0xFFFFFFFF))
+
+
 def register_voice(audio_b64: str, prompt_text: Optional[str] = None,
                    name: Optional[str] = None) -> Dict[str, Any]:
     """Validate and store an uploaded voice, returning its id and measured properties."""
@@ -404,6 +419,76 @@ class EndpointHandler:
                 entry, vid = bundled[pick], pick
         return entry["prompt_text"], os.path.join(PROMPT_DIR, entry["prompt_wav"]), None, "preset", vid
 
+
+
+    def stream(self, data: Dict[str, Any]):
+        """Yield WAV audio as it is generated, instead of after it is finished.
+
+        This is the point of the model. CosyVoice emits speech in chunks of
+        token_min_hop_len (2 x token_frame_rate = 50 tokens, about 2s of audio) with a
+        20-token overlap for smooth joins, so the first audio is ready after roughly 70
+        tokens no matter how long the whole request is. Batching that up and returning it in
+        one JSON blob turned a ~1-2s wait into 152s on a four-minute passage.
+
+        The batch path re-rolls a bad take up to GEN_ATTEMPTS times, which streaming cannot
+        do -- audio already sent cannot be recalled. That matters less than it sounds: across
+        every live generation measured on 2026-08-29 (nine languages plus smoke tests and two
+        poems) every single one succeeded on attempts=1, and the one case that did retry
+        (chichewa/male) still failed after four. So the guard has never actually rescued a
+        request. What it does catch -- a collapse, or a spoken reference -- shows up at the
+        START of the audio, so the FIRST chunk is held back and checked before anything is
+        emitted. That costs about two seconds rather than the whole generation.
+
+        Yields raw WAV bytes: a streaming header first, then PCM as it arrives.
+        """
+        text = (data.get("inputs") or data.get("text") or "").strip()
+        if not text:
+            raise ValueError("`inputs` (text to synthesize) is required")
+
+        key = _resolve_language(data.get("language"))
+        model, _ = self._get_model(key)
+        prompt_text, prompt_wav, cleanup, _, _ = self._prompt_for(key, data)
+
+        raw_prompt_text = (prompt_text or "").replace("<|endofprompt|>", "").strip()
+        if raw_prompt_text:
+            prompt_text, mode = EOP_PREAMBLE + raw_prompt_text, "zero_shot"
+        else:
+            prompt_text, mode = None, "cross_lingual"
+        sr = int(model.sample_rate)
+
+        def pcm(a):
+            return (np.clip(a, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
+
+        try:
+            if mode == "zero_shot":
+                gen = model.inference_zero_shot(text, prompt_text, prompt_wav, stream=True)
+            else:
+                gen = model.inference_cross_lingual(EOP_PREAMBLE + text, prompt_wav, stream=True)
+
+            yield _wav_stream_header(sr)
+            first, emitted = None, 0
+            for out in gen:
+                a = out["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
+                if a.size == 0:
+                    continue
+                if first is None:
+                    # hold the opening chunk back just long enough to reject an obvious dud
+                    first = a
+                    if float(np.max(np.abs(a))) < 0.02:
+                        log.warning("first chunk silent for %s, dropping stream", key)
+                        return
+                    yield pcm(a)
+                    emitted += a.size
+                    continue
+                yield pcm(a)
+                emitted += a.size
+            log.info("streamed %.2fs for %s (%s)", emitted / sr, key, mode)
+        finally:
+            if cleanup:
+                try:
+                    os.remove(cleanup)
+                except OSError:
+                    pass
 
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
         text = (data.get("inputs") or data.get("text") or "").strip()
