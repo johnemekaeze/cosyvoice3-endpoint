@@ -34,6 +34,8 @@ import json
 import logging
 import os
 import tempfile
+import uuid
+from collections import OrderedDict
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -222,6 +224,20 @@ def _decode_voice(audio_b64: str, prompt_text: Optional[str] = None) -> str:
         os.remove(tmp.name)
         raise ValueError(f"uploaded audio is {info.duration:.1f}s -- the model accepts at most 30s")
     return tmp.name
+
+
+# Verdicts for finished streams, so /stream can report what POST / reports. A stream cannot
+# carry an end-of-generation status in its headers -- they are sent before the audio -- so the
+# caller reads it afterwards from GET /result/{request_id}. Capped like VOICE_STORE; this is
+# per-replica and is lost on restart, which is fine for something read seconds later.
+STREAM_RESULTS: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+STREAM_RESULTS_MAX = 200
+
+
+def _record_result(rid: str, payload: Dict[str, Any]) -> None:
+    STREAM_RESULTS[rid] = payload
+    while len(STREAM_RESULTS) > STREAM_RESULTS_MAX:
+        STREAM_RESULTS.popitem(last=False)
 
 
 def _wav_stream_header(sample_rate: int, channels: int = 1, bits: int = 16) -> bytes:
@@ -461,35 +477,81 @@ class EndpointHandler:
         # truncated audio stream, and the caller needs these facts up front because there is
         # no JSON body to put them in. They go out as response headers instead.
         info = {"language": key, "display": meta["display"], "voice": voice_id,
-                "voice_source": source, "mode": mode, "sampling_rate": sr}
+                "voice_source": source, "mode": mode, "sampling_rate": sr,
+                "request_id": uuid.uuid4().hex[:12]}
 
         def pcm(a):
             return (np.clip(a, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
 
+        # Nothing is emitted until PREROLL_SEC of audio exists (or generation ends, whichever
+        # comes first). That buys back the retry the batch route has: a collapse ends
+        # generation almost immediately, so it is visible while the connection is still
+        # silent and the whole attempt can be thrown away and re-rolled. Once a byte is sent
+        # nothing can be recalled, so this is the only window in which retrying is possible.
+        # It costs about PREROLL_SEC of extra latency and restores the check that actually
+        # fires in practice.
+        PREROLL_SEC = 2.0
+        expected_min = max(0.5, min(1.2, 0.12 * len(text.split())))
+
+        def attempt():
+            """Generate once. Returns (preroll_chunks, rest_generator, duration_if_ended)."""
+            if mode == "zero_shot":
+                gen = model.inference_zero_shot(text, prompt_text, prompt_wav, stream=True)
+            else:
+                gen = model.inference_cross_lingual(EOP_PREAMBLE + text, prompt_wav, stream=True)
+            buf, n = [], 0
+            for out in gen:
+                a = out["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
+                if a.size == 0:
+                    continue
+                buf.append(a)
+                n += a.size
+                if n / sr >= PREROLL_SEC:
+                    return buf, gen, None          # enough to commit; the rest streams on
+            return buf, None, n / sr               # generation finished inside the preroll
+
         def generate():
+            emitted, peak, attempts, ok = 0, 0.0, 0, False
             try:
-                if mode == "zero_shot":
-                    gen = model.inference_zero_shot(text, prompt_text, prompt_wav, stream=True)
-                else:
-                    gen = model.inference_cross_lingual(EOP_PREAMBLE + text, prompt_wav,
-                                                        stream=True)
+                buf = rest = None
+                for attempts in range(1, GEN_ATTEMPTS + 1):
+                    buf, rest, ended = attempt()
+                    total = sum(a.size for a in buf) / sr
+                    pk = max((float(np.max(np.abs(a))) for a in buf if a.size), default=0.0)
+                    if rest is not None or (total >= expected_min and pk > 0.02):
+                        break
+                    log.warning("stream attempt %d for %s produced %.2fs (peak %.3f), re-rolling",
+                                attempts, key, total, pk)
+                    buf, rest = None, None
 
                 yield _wav_stream_header(sr)
-                first, emitted = None, 0
-                for out in gen:
-                    a = out["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
-                    if a.size == 0:
-                        continue
-                    if first is None:
-                        # hold the opening chunk back just long enough to reject an obvious dud
-                        first = a
-                        if float(np.max(np.abs(a))) < 0.02:
-                            log.warning("first chunk silent for %s, dropping stream", key)
-                            return
-                    yield pcm(a)
+                for a in (buf or []):
+                    peak = max(peak, float(np.max(np.abs(a))) if a.size else 0.0)
                     emitted += a.size
-                log.info("streamed %.2fs for %s (%s)", emitted / sr, key, mode)
+                    yield pcm(a)
+                if rest is not None:
+                    for out in rest:
+                        a = out["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
+                        if a.size == 0:
+                            continue
+                        peak = max(peak, float(np.max(np.abs(a))))
+                        emitted += a.size
+                        yield pcm(a)
+
+                dur = emitted / sr
+                ok = bool(dur >= expected_min and peak > 0.02)
+                log.info("streamed %.2fs for %s (%s) in %d attempt(s), ok=%s",
+                         dur, key, mode, attempts, ok)
             finally:
+                _record_result(info["request_id"], {
+                    "request_id": info["request_id"], "language": key,
+                    "voice": voice_id, "voice_source": source, "mode": mode,
+                    "sampling_rate": sr, "duration_sec": round(emitted / sr, 2),
+                    "peak": round(peak, 4), "attempts": attempts,
+                    "status": {"voice_loaded": True, "voice_cloned": True,
+                               "audio_generated": ok},
+                    "ok": ok,
+                })
                 if cleanup:
                     try:
                         os.remove(cleanup)

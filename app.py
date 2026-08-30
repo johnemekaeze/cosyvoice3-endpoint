@@ -185,6 +185,28 @@ def list_voices() -> Dict[str, Any]:
                        for k, v in VOICE_STORE.items()]}
 
 
+@app.get("/result/{request_id}")
+def stream_result(request_id: str) -> Dict[str, Any]:
+    """The verdict on a finished stream: the fields POST / returns in its JSON body.
+
+    Response headers go out before the audio, so they cannot say whether the audio that
+    followed was any good. Read the X-Request-Id header off the stream, then call this once
+    the stream ends to get ok / audio_generated / duration_sec / peak / attempts.
+
+    Verdicts are held per replica and only the most recent few hundred are kept, so read it
+    shortly after the stream finishes rather than hours later.
+    """
+    from handler import STREAM_RESULTS
+
+    rec = STREAM_RESULTS.get(request_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail={
+            "error": f"unknown request_id '{request_id}'",
+            "note": "Either the stream has not finished yet, or the replica restarted. "
+                    "Results are held in memory per replica."})
+    return rec
+
+
 @app.post("/stream")
 def tts_stream(req: TTSRequest):
     """Same request body as POST /, but audio arrives as it is generated.
@@ -230,9 +252,10 @@ def tts_stream(req: TTSRequest):
             "X-Sample-Rate": str(info["sampling_rate"]),
             "X-Voice-Loaded": "true",
             "X-Voice-Cloned": "true",
+            "X-Request-Id": str(info["request_id"]),
             "Access-Control-Expose-Headers":
                 "X-Language,X-Display,X-Voice,X-Voice-Source,X-Mode,X-Sample-Rate,"
-                "X-Voice-Loaded,X-Voice-Cloned",
+                "X-Voice-Loaded,X-Voice-Cloned,X-Request-Id",
         })
 
 
