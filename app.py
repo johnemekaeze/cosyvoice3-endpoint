@@ -204,15 +204,36 @@ def tts_stream(req: TTSRequest):
                             detail={"error": f"Model not ready: {exc}", "retry": True,
                                     "note": RETRY_NOTE}) from exc
     try:
-        gen = handler.stream(req.model_dump())
+        info, generate = handler.stream_prepare(req.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail={"error": str(exc), "retry": False}) from exc
     except Exception as exc:
         log.exception("stream setup failed")
         raise HTTPException(status_code=500,
                             detail={"error": f"Generation failed: {exc}", "retry": True}) from exc
-    return StreamingResponse(gen, media_type="audio/wav",
-                             headers={"X-Accel-Buffering": "no", "Cache-Control": "no-store"})
+
+    # A stream has no JSON body to carry the status fields, so they travel as headers, which
+    # are sent BEFORE the first audio byte. voice_loaded and voice_cloned are both known by
+    # now -- the reference was accepted and the model is committed to generating from it.
+    # audio_generated has no header equivalent: audio arriving IS the signal, and a failure
+    # before the first byte is an ordinary 4xx/5xx.
+    return StreamingResponse(
+        generate(), media_type="audio/wav",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-store",
+            "X-Language": str(info["language"]),
+            "X-Display": str(info["display"]),
+            "X-Voice": str(info["voice"]),
+            "X-Voice-Source": str(info["voice_source"]),
+            "X-Mode": str(info["mode"]),
+            "X-Sample-Rate": str(info["sampling_rate"]),
+            "X-Voice-Loaded": "true",
+            "X-Voice-Cloned": "true",
+            "Access-Control-Expose-Headers":
+                "X-Language,X-Display,X-Voice,X-Voice-Source,X-Mode,X-Sample-Rate,"
+                "X-Voice-Loaded,X-Voice-Cloned",
+        })
 
 
 @app.post("/")

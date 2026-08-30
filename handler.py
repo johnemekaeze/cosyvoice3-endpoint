@@ -421,7 +421,7 @@ class EndpointHandler:
 
 
 
-    def stream(self, data: Dict[str, Any]):
+    def stream_prepare(self, data: Dict[str, Any]):
         """Yield WAV audio as it is generated, instead of after it is finished.
 
         This is the point of the model. CosyVoice emits speech in chunks of
@@ -446,8 +446,8 @@ class EndpointHandler:
             raise ValueError("`inputs` (text to synthesize) is required")
 
         key = _resolve_language(data.get("language"))
-        model, _ = self._get_model(key)
-        prompt_text, prompt_wav, cleanup, _, _ = self._prompt_for(key, data)
+        model, meta = self._get_model(key)
+        prompt_text, prompt_wav, cleanup, source, voice_id = self._prompt_for(key, data)
 
         raw_prompt_text = (prompt_text or "").replace("<|endofprompt|>", "").strip()
         if raw_prompt_text:
@@ -456,39 +456,47 @@ class EndpointHandler:
             prompt_text, mode = None, "cross_lingual"
         sr = int(model.sample_rate)
 
+        # Everything above runs EAGERLY, before a single byte is sent. That is deliberate:
+        # a bad language or an unavailable gender must surface as a normal 400, not as a
+        # truncated audio stream, and the caller needs these facts up front because there is
+        # no JSON body to put them in. They go out as response headers instead.
+        info = {"language": key, "display": meta["display"], "voice": voice_id,
+                "voice_source": source, "mode": mode, "sampling_rate": sr}
+
         def pcm(a):
             return (np.clip(a, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
 
-        try:
-            if mode == "zero_shot":
-                gen = model.inference_zero_shot(text, prompt_text, prompt_wav, stream=True)
-            else:
-                gen = model.inference_cross_lingual(EOP_PREAMBLE + text, prompt_wav, stream=True)
+        def generate():
+            try:
+                if mode == "zero_shot":
+                    gen = model.inference_zero_shot(text, prompt_text, prompt_wav, stream=True)
+                else:
+                    gen = model.inference_cross_lingual(EOP_PREAMBLE + text, prompt_wav,
+                                                        stream=True)
 
-            yield _wav_stream_header(sr)
-            first, emitted = None, 0
-            for out in gen:
-                a = out["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
-                if a.size == 0:
-                    continue
-                if first is None:
-                    # hold the opening chunk back just long enough to reject an obvious dud
-                    first = a
-                    if float(np.max(np.abs(a))) < 0.02:
-                        log.warning("first chunk silent for %s, dropping stream", key)
-                        return
+                yield _wav_stream_header(sr)
+                first, emitted = None, 0
+                for out in gen:
+                    a = out["tts_speech"].squeeze(0).cpu().numpy().astype(np.float32)
+                    if a.size == 0:
+                        continue
+                    if first is None:
+                        # hold the opening chunk back just long enough to reject an obvious dud
+                        first = a
+                        if float(np.max(np.abs(a))) < 0.02:
+                            log.warning("first chunk silent for %s, dropping stream", key)
+                            return
                     yield pcm(a)
                     emitted += a.size
-                    continue
-                yield pcm(a)
-                emitted += a.size
-            log.info("streamed %.2fs for %s (%s)", emitted / sr, key, mode)
-        finally:
-            if cleanup:
-                try:
-                    os.remove(cleanup)
-                except OSError:
-                    pass
+                log.info("streamed %.2fs for %s (%s)", emitted / sr, key, mode)
+            finally:
+                if cleanup:
+                    try:
+                        os.remove(cleanup)
+                    except OSError:
+                        pass
+
+        return info, generate
 
     def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
         text = (data.get("inputs") or data.get("text") or "").strip()
