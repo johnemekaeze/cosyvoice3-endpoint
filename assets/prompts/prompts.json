@@ -35,8 +35,8 @@
       "prompt_wav": "chichewa__female.wav"
     },
     "male": {
-      "prompt_text": "Makalata ambiri adasungidwa mu bokosi lamtali.",
-      "prompt_wav": "chichewa__male.wav"
+      "prompt_wav": "chichewa__male.wav",
+      "prompt_text": ""
     }
   },
   "ewe": {
