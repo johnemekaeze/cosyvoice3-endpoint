@@ -152,6 +152,12 @@ DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "hausa").strip()
 DEFAULT_VOICE = os.environ.get("COSYVOICE_DEFAULT_VOICE", "female").strip().lower()
 # how many times to re-roll a collapsed generation before giving up
 GEN_ATTEMPTS = int(os.environ.get("COSYVOICE_GEN_ATTEMPTS", "4"))
+# One repo serving EVERY language, instead of a per-language repo. Set to
+# "all-lab/cosyvoice3-combined" to run the combined multilingual model; leave unset for the
+# per-language models. The same image then serves both arms of an A/B comparison, configured
+# per endpoint rather than forked into a second codebase -- and because only one model exists,
+# a language switch costs nothing: no download, no unload, no 15GB memory cliff.
+SINGLE_REPO = os.environ.get("COSYVOICE_SINGLE_REPO", "").strip()
 # The marker terminates an instruction preamble; the reference transcript follows it.
 EOP_PREAMBLE = "You are a helpful assistant.<|endofprompt|>"
 
@@ -324,7 +330,10 @@ class EndpointHandler:
 
     def _get_model(self, language: str):
         key = _resolve_language(language)
-        if self._cache["name"] == key and self._cache["model"] is not None:
+        # With one combined model the cache key is the repo, not the language, so every
+        # language hits the already-loaded model.
+        cache_key = SINGLE_REPO or key
+        if self._cache["name"] == cache_key and self._cache["model"] is not None:
             return self._cache["model"], MODELS[key]
 
         from huggingface_hub import snapshot_download
@@ -332,7 +341,7 @@ class EndpointHandler:
         from cosyvoice.cli.cosyvoice import CosyVoice3
 
         self._unload()
-        repo = MODELS[key]["repo"]
+        repo = SINGLE_REPO or MODELS[key]["repo"]
         log.info("downloading %s from %s", key, repo)
         try:
             local_dir = snapshot_download(repo_id=repo, token=_hf_token(), ignore_patterns=_SNAPSHOT_IGNORE)
@@ -365,7 +374,7 @@ class EndpointHandler:
                 log.exception("failed to load %s even after refetch", key)
                 raise RuntimeError(
                     f"could not load the {key} model after re-download: {exc2}") from exc2
-        self._cache["name"] = key
+        self._cache["name"] = cache_key
         self._cache["model"] = model
         self._cache["snapshot"] = local_dir
         log.info("loaded %s", key)
