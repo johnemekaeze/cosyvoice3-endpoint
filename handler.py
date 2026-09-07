@@ -55,6 +55,10 @@ _L = "all-lab/cosyvoice3-individual-{}"
 MODELS: Dict[str, Dict[str, str]] = {
     "hausa": {"repo": _L.format("hausa"), "display": "Hausa"},
     "twi": {"repo": _L.format("twi"), "display": "Twi"},
+    # re-included: it was excluded for collapsing under a second, but that traced to a
+    # Waxal_NLP reference clip and undiacriticised text, not the model. With a
+    # Naija_Voices reference and tone-marked input it renders full-length.
+    "yoruba": {"repo": _L.format("yoruba"), "display": "Yoruba"},
     "igbo": {"repo": _L.format("igbo"), "display": "Igbo"},
     "ewe": {"repo": _L.format("ewe"), "display": "Ewe"},
     "berber": {"repo": _L.format("berber"), "display": "Berber (Tamazight)"},

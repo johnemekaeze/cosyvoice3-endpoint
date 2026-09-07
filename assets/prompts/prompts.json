@@ -36,7 +36,7 @@
     },
     "male": {
       "prompt_wav": "chichewa__male.wav",
-      "prompt_text": ""
+      "prompt_text": "bambo wina wovala malaya amizeremizere ndi magalasi a maso akukambirana pa telefoni ali m chipinda chake"
     }
   },
   "ewe": {
@@ -237,6 +237,16 @@
     "female": {
       "prompt_text": "Moto ya maladi azalaki na Nigeria, esika bakangaki ndambu ya bato na maladi ya Ebola.",
       "prompt_wav": "lingala__female.wav"
+    }
+  },
+  "yoruba": {
+    "male": {
+      "prompt_wav": "yoruba__male.wav",
+      "prompt_text": "Wọ́n ti jùmọ̀ sọ pé wọ́n ma ge ní ọjọ́ ìṣẹ́gun, ṣùgbọ́n wọ́n fipamọ́ lẹ́yìn pàjáwìrì ẹjẹ́ ilé ẹjọ́."
+    },
+    "female": {
+      "prompt_wav": "yoruba__female.wav",
+      "prompt_text": "Wọn rán Ọmọdékùnrin ọmọ ọdún mẹ́rìnlá náà lọ sí àtìmọ́lé ọmọdé nítorí pé ó ń fòòró àwọn ẹgbẹ́ rẹ̀."
     }
   }
 }
