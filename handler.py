@@ -45,59 +45,79 @@ import torch
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("cosyvoice3-endpoint")
 
-# Every language here is backed by a published all-lab/cosyvoice3-individual-* repo holding
-# the exact llm+flow checkpoint pair that produced a verified-clean sample in the
-# best-checkpoint audit (full-length output, no high-frequency artefacts, healthy level).
-# Deliberately excluded, having failed that audit: af-ZA / en-UG / ki-KE / nd-ZW / rw-RW /
-# yo-NG (collapse to well under a second), sn-ZW (audible hiss), wo-SN (~30dB too quiet)
-# and bem-ZM (generation errored outright).
+# Every language here is backed by a published all-lab/cosyvoice3-individual-* repo.
+# Combined serving overrides the repo via COSYVOICE_SINGLE_REPO.
 _L = "all-lab/cosyvoice3-individual-{}"
+_DISPLAY = {
+    "afrikaans": "Afrikaans",
+    "amharic": "Amharic",
+    "arabic": "Arabic",
+    "bambara": "Bambara",
+    "bemba": "Bemba",
+    "berber": "Berber (Tamazight)",
+    "chichewa": "Chichewa",
+    "english": "English",
+    "ewe": "Ewe",
+    "fon": "Fon",
+    "fula": "Fula",
+    "hausa": "Hausa",
+    "igbo": "Igbo",
+    "kanuri": "Kanuri",
+    "kikuyu": "Kikuyu",
+    "kinyarwanda": "Kinyarwanda",
+    "krio": "Krio",
+    "lingala": "Lingala",
+    "luganda": "Luganda",
+    "malagasy": "Malagasy",
+    "ndebele": "Ndebele",
+    "oromo": "Oromo",
+    "sepedi": "Sepedi",
+    "sesotho": "Sesotho",
+    "shona": "Shona",
+    "somali": "Somali",
+    "swahili": "Swahili",
+    "swati": "Swati",
+    "tigrinya": "Tigrinya",
+    "tsonga": "Tsonga",
+    "tswana": "Tswana",
+    "twi": "Twi",
+    "umbundu": "Umbundu",
+    "venda": "Venda",
+    "wolof": "Wolof",
+    "xhosa": "Xhosa",
+    "yoruba": "Yoruba",
+    "zulu": "Zulu",
+}
 MODELS: Dict[str, Dict[str, str]] = {
-    "hausa": {"repo": _L.format("hausa"), "display": "Hausa"},
-    "twi": {"repo": _L.format("twi"), "display": "Twi"},
-    # re-included: it was excluded for collapsing under a second, but that traced to a
-    # Waxal_NLP reference clip and undiacriticised text, not the model. With a
-    # Naija_Voices reference and tone-marked input it renders full-length.
-    "yoruba": {"repo": _L.format("yoruba"), "display": "Yoruba"},
-    "igbo": {"repo": _L.format("igbo"), "display": "Igbo"},
-    "ewe": {"repo": _L.format("ewe"), "display": "Ewe"},
-    "berber": {"repo": _L.format("berber"), "display": "Berber (Tamazight)"},
-    "umbundu": {"repo": _L.format("umbundu"), "display": "Umbundu"},
-    "amharic": {"repo": _L.format("amharic"), "display": "Amharic"},
-    "arabic": {"repo": _L.format("arabic"), "display": "Arabic"},
-    "fula": {"repo": _L.format("fula"), "display": "Fula"},
-    "luganda": {"repo": _L.format("luganda"), "display": "Luganda"},
-    "lingala": {"repo": _L.format("lingala"), "display": "Lingala"},
-    "malagasy": {"repo": _L.format("malagasy"), "display": "Malagasy"},
-    "sepedi": {"repo": _L.format("sepedi"), "display": "Sepedi"},
-    "chichewa": {"repo": _L.format("chichewa"), "display": "Chichewa"},
-    "oromo": {"repo": _L.format("oromo"), "display": "Oromo"},
-    "somali": {"repo": _L.format("somali"), "display": "Somali"},
-    "sesotho": {"repo": _L.format("sesotho"), "display": "Sesotho"},
-    "swahili": {"repo": _L.format("swahili"), "display": "Swahili"},
-    "tigrinya": {"repo": _L.format("tigrinya"), "display": "Tigrinya"},
-    "tswana": {"repo": _L.format("tswana"), "display": "Tswana"},
-    "tsonga": {"repo": _L.format("tsonga"), "display": "Tsonga"},
-    "venda": {"repo": _L.format("venda"), "display": "Venda"},
-    "xhosa": {"repo": _L.format("xhosa"), "display": "Xhosa"},
-    "zulu": {"repo": _L.format("zulu"), "display": "Zulu"},
+    key: {"repo": _L.format(key), "display": label} for key, label in _DISPLAY.items()
 }
 
 # Legacy ISO-style codes (ha-NG, sw-KE, ...) remain accepted so anything already written
 # against them keeps working; plain language names are the canonical form.
 ALIASES: Dict[str, str] = {
+    "af": "afrikaans",
+    "af-za": "afrikaans",
     "afaan oromo": "oromo",
     "am": "amharic",
     "am-et": "amharic",
     "ar": "arabic",
     "ar-ar": "arabic",
+    "bam": "bambara",
+    "bem": "bemba",
+    "bem-zm": "bemba",
     "ber": "berber",
     "ber-ma": "berber",
+    "bm": "bambara",
     "chewa": "chichewa",
+    "en": "english",
+    "en-ng": "english",
+    "en-ug": "english",
+    "en-za": "english",
     "ee": "ewe",
     "ee-gh": "ewe",
     "ff": "fula",
     "ff-sn": "fula",
+    "fon-bj": "fon",
     "fulani": "fula",
     "ganda": "luganda",
     "ha": "hausa",
@@ -106,7 +126,12 @@ ALIASES: Dict[str, str] = {
     "ig-ng": "igbo",
     "isixhosa": "xhosa",
     "isizulu": "zulu",
+    "ki": "kikuyu",
+    "ki-ke": "kikuyu",
     "kiswahili": "swahili",
+    "knc": "kanuri",
+    "kr": "kanuri",
+    "kri": "krio",
     "lg": "luganda",
     "lg-ug": "luganda",
     "ln": "lingala",
@@ -116,6 +141,8 @@ ALIASES: Dict[str, str] = {
     "northern sotho": "sepedi",
     "nso": "sepedi",
     "nso-za": "sepedi",
+    "nd": "ndebele",
+    "nd-zw": "ndebele",
     "ny": "chichewa",
     "ny-mw": "chichewa",
     "nyanja": "chichewa",
@@ -123,10 +150,17 @@ ALIASES: Dict[str, str] = {
     "or-ke": "oromo",
     "pedi": "sepedi",
     "pulaar": "fula",
+    "rw": "kinyarwanda",
+    "rw-rw": "kinyarwanda",
     "setswana": "tswana",
+    "siswati": "swati",
+    "sn": "shona",
+    "sn-zw": "shona",
     "so": "somali",
     "so-so": "somali",
     "sotho": "sesotho",
+    "ss": "swati",
+    "ss-za": "swati",
     "st": "sesotho",
     "st-za": "sesotho",
     "sw": "swahili",
@@ -147,10 +181,41 @@ ALIASES: Dict[str, str] = {
     "ve-za": "venda",
     "xh": "xhosa",
     "xh-za": "xhosa",
+    "wo": "wolof",
+    "wo-sn": "wolof",
     "xitsonga": "tsonga",
+    "yo": "yoruba",
+    "yo-ng": "yoruba",
     "zu": "zulu",
     "zu-za": "zulu",
 }
+
+def _ensure_blank_en(local_dir: str) -> None:
+    """Some individual Hub packs were pushed tensor-only and omit CosyVoice-BlankEN.
+
+    CosyVoice3(local_dir) then treats the missing folder path as a Hub repo id and
+    crashes. Pull the tokenizer from the combined pack once and copy it in.
+    """
+    dest = os.path.join(local_dir, "CosyVoice-BlankEN")
+    if os.path.isfile(os.path.join(dest, "config.json")):
+        return
+    from huggingface_hub import snapshot_download
+
+    log.warning("CosyVoice-BlankEN missing under %s; fetching from all-lab/cosyvoice3-combined", local_dir)
+    donor = snapshot_download(
+        repo_id="all-lab/cosyvoice3-combined",
+        token=_hf_token(),
+        allow_patterns=["CosyVoice-BlankEN/**"],
+    )
+    src = os.path.join(donor, "CosyVoice-BlankEN")
+    if not os.path.isfile(os.path.join(src, "config.json")):
+        raise RuntimeError("all-lab/cosyvoice3-combined has no CosyVoice-BlankEN")
+    import shutil
+
+    if os.path.isdir(dest):
+        shutil.rmtree(dest)
+    shutil.copytree(src, dest)
+
 
 DEFAULT_LANGUAGE = os.environ.get("COSYVOICE_DEFAULT_LANGUAGE", "hausa").strip()
 DEFAULT_VOICE = os.environ.get("COSYVOICE_DEFAULT_VOICE", "female").strip().lower()
@@ -349,6 +414,7 @@ class EndpointHandler:
         log.info("downloading %s from %s", key, repo)
         try:
             local_dir = snapshot_download(repo_id=repo, token=_hf_token(), ignore_patterns=_SNAPSHOT_IGNORE)
+            _ensure_blank_en(local_dir)
             log.info("loading %s on %s", key, self._device)
             model = CosyVoice3(local_dir, fp16=False)
         except Exception as exc:
@@ -369,6 +435,7 @@ class EndpointHandler:
                 local_dir = snapshot_download(repo_id=repo, token=_hf_token(),
                                               ignore_patterns=_SNAPSHOT_IGNORE,
                                               force_download=True)
+                _ensure_blank_en(local_dir)
                 log.info("re-loading %s on %s after refetch", key, self._device)
                 model = CosyVoice3(local_dir, fp16=False)
             except Exception as exc2:
