@@ -207,17 +207,24 @@ def stream_result(request_id: str) -> Dict[str, Any]:
     return rec
 
 
-@app.post("/stream")
-def tts_stream(req: TTSRequest):
-    """Same request body as POST /, but audio arrives as it is generated.
+def _streaming_response(req: TTSRequest, route: str):
+    """Build the chunked audio/wav response. Shared by POST / and POST /stream.
 
-    Returns chunked audio/wav: a streaming RIFF header, then 16-bit PCM. First audio lands
-    in roughly 1-2s regardless of how long the passage is, against 152s for a four-minute
-    request on the batch route.
+    Both routes stream. The status fields that POST / used to return in a JSON body travel
+    as headers instead, which are sent BEFORE the first audio byte, so a caller still learns
+    the language, voice, mode and request id -- it just reads them from the response headers
+    rather than the body. `audio_generated` has no header equivalent: audio arriving IS the
+    signal, and a failure before the first byte is an ordinary 4xx/5xx.
 
-    Errors can only be reported before the first byte. Once audio is flowing the status
-    fields POST / returns have nowhere to go, so a caller that needs `ok` and `status` should
-    use POST / instead.
+    The cost of streaming is the retry guarantee. The batch path re-rolled a collapsed
+    generation up to GEN_ATTEMPTS times because it held the whole clip before answering.
+    A stream can only re-roll inside the preroll window, while the connection is still
+    silent; once a byte is sent nothing can be recalled. Callers should treat a short or
+    collapsed clip as a retryable condition on their side.
+
+    The full result -- duration, peak, attempts, status flags -- is still recorded per
+    request and can be fetched afterwards from GET /result/{request_id}, using the id in
+    the X-Request-Id header.
     """
     try:
         handler = _get_handler()
@@ -228,17 +235,14 @@ def tts_stream(req: TTSRequest):
     try:
         info, generate = handler.stream_prepare(req.model_dump())
     except ValueError as exc:
+        # a bad request (unknown language/voice, malformed upload) -- retrying will not help
         raise HTTPException(status_code=400, detail={"error": str(exc), "retry": False}) from exc
     except Exception as exc:
-        log.exception("stream setup failed")
+        log.exception("%s setup failed", route)
         raise HTTPException(status_code=500,
-                            detail={"error": f"Generation failed: {exc}", "retry": True}) from exc
+                            detail={"error": f"Generation failed: {exc}", "retry": True,
+                                    "note": RETRY_NOTE}) from exc
 
-    # A stream has no JSON body to carry the status fields, so they travel as headers, which
-    # are sent BEFORE the first audio byte. voice_loaded and voice_cloned are both known by
-    # now -- the reference was accepted and the model is committed to generating from it.
-    # audio_generated has no header equivalent: audio arriving IS the signal, and a failure
-    # before the first byte is an ordinary 4xx/5xx.
     return StreamingResponse(
         generate(), media_type="audio/wav",
         headers={
@@ -259,26 +263,29 @@ def tts_stream(req: TTSRequest):
         })
 
 
-@app.post("/")
-def tts(req: TTSRequest) -> Dict[str, Any]:
-    try:
-        handler = _get_handler()
-    except Exception as exc:
-        raise HTTPException(status_code=503,
-                            detail={"error": f"Model not ready: {exc}", "retry": True,
-                                    "note": RETRY_NOTE}) from exc
+@app.post("/stream")
+def tts_stream(req: TTSRequest):
+    """Chunked audio/wav: a streaming RIFF header, then 16-bit PCM.
 
-    payload = req.model_dump()
-    try:
-        return handler(payload)
-    except ValueError as exc:
-        # a bad request (unknown language/voice, malformed upload) -- retrying will not help
-        raise HTTPException(status_code=400,
-                            detail={"error": str(exc), "retry": False}) from exc
-    except Exception as exc:
-        log.exception("generate failed")
-        raise HTTPException(status_code=500,
-                            detail={"error": f"Generation failed: {exc}", "retry": True,
-                                    "note": "Generation is stochastic and occasionally fails or "
-                                            "collapses. TRY AGAIN -- the same request usually "
-                                            "succeeds on a retry."}) from exc
+    Kept as a distinct path so existing clients pointing at /stream keep working. POST /
+    now behaves identically -- both call _streaming_response.
+    """
+    return _streaming_response(req, "stream")
+
+
+@app.post("/")
+def tts(req: TTSRequest):
+    """Synthesis. Audio streams as it is generated.
+
+    This route used to generate the whole clip and return it as base64 JSON. It now streams,
+    so the first audio arrives in roughly 1-2s instead of after the full passage -- 152s for
+    a four-minute request on the old path.
+
+    What changed for callers:
+      - the response is chunked audio/wav, not JSON. Read the bytes, not `audio_base64`.
+      - the old JSON status fields are response headers now: X-Language, X-Display, X-Voice,
+        X-Voice-Source, X-Mode, X-Sample-Rate, X-Request-Id. They are sent before the audio.
+      - the full record is still available from GET /result/{request_id} afterwards.
+      - collapsed output can no longer be re-rolled after the first byte. Retry client-side.
+    """
+    return _streaming_response(req, "tts")
